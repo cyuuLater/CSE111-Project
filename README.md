@@ -13,6 +13,7 @@ Our project is based on tracking personal parking and permits within the UC Merc
 # Phase 1
 Determine the project requirements and write the specification. Design the database layer. You are required to provide the use case specification as 
 UML diagrams, the database design as E/R diagrams, the conversion from the E/R diagrams to relations, and the database SQL schema.
+**Link to slides**: https://docs.google.com/presentation/d/1eyryc-P_o0UGm4TsVRnF0NqwYFX8PUrZoWns3lLiHXo/edit?slide=id.g38c95008eb5_0_0#slide=id.g38c95008eb5_0_0
 
 # Phase 2
 Implement the database layer. By this time you should be done with writing queries/updates/views in SQL. Design the user interface and provide a 
