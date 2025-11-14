@@ -1,0 +1,12 @@
+.mode "csv"
+.separator "|"
+
+.import users.tbl cusers
+.import permit.tbl permit
+.import permitType.tbl permitType
+.import vehicles.tbl vehicles
+.import parkingHistory.tbl parkingHistory
+.import spots.tbl spots
+.import zone.tbl zone
+.import zoneAssignment.tbl zoneAssignment
+.import lot.tbl lot
