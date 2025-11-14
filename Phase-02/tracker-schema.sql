@@ -4,7 +4,7 @@ CREATE TABLE users (
     u_userkey integer PRIMARY KEY not null,
     u_name varchar(20) not null,
     u_email varchar(20) not null,
-    u_password varchar(20) not null,
+    u_password varchar(20) not null
 );
 
 CREATE TABLE permit (
@@ -57,7 +57,7 @@ CREATE TABLE spots (
     s_num varchar(5) not null,
     s_isactive BOOL,
     s_latitude DECIMAL(9,6),
-    s_longitude DECIMAL(9,6) 
+    s_longitude DECIMAL(9,6),
 
     FOREIGN KEY (s_zonekey) REFERENCES zone(z_zonekey)
 );
