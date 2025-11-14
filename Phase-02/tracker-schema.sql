@@ -1,3 +1,5 @@
+-- NOTE: Plan to use the Leaflet API for Phase 3
+
 CREATE TABLE users (
     u_userkey integer PRIMARY KEY not null,
     u_name varchar(20) not null,
@@ -7,7 +9,7 @@ CREATE TABLE users (
 
 CREATE TABLE permit (
     p_permitkey integer PRIMARY KEY,
-    p_userkey integer UNIQUE not null, -- I'm thinking since we have many one permit for a vehicle, we should do 1:M between users and permit
+    p_userkey integer not null, -- I'm thinking since we have one permit for a vehicle and some users have multiple cars, we should do 1:M between users and permit
     p_vehicleskey integer not null,
     p_permittypekey integer not null,
     p_permitnum varchar(20) NOT NULL,
@@ -53,8 +55,9 @@ CREATE TABLE spots (
     s_zonekey integer not null,
     s_status BOOL,
     s_num varchar(5) not null,
-    s_coordinates varchar(50), -- Thinking we probably don't need this
     s_isactive BOOL,
+    s_latitude DECIMAL(9,6),
+    s_longitude DECIMAL(9,6) 
 
     FOREIGN KEY (s_zonekey) REFERENCES zone(z_zonekey)
 );
@@ -68,7 +71,6 @@ CREATE TABLE zoneAssignment (
     za_zonekey integer not null,
     za_lotkey integer not null,
     za_isactive BOOL,
-    za_coordinates varchar(50),
 
     FOREIGN KEY (za_zonekey) REFERENCES zone(z_zonekey),
     FOREIGN KEY (za_lotkey) REFERENCES lot(l_lotkey)
@@ -78,5 +80,6 @@ CREATE TABLE lot (
     l_lotkey integer PRIMARY KEY,
     l_name varchar(20) not null,
     l_capacity integer not null,
-    l_coordinates varchar(50)
+    l_latitude DECIMAL(9,6),
+    l_longitude DECIMAL(9,6) 
 );
