@@ -50,6 +50,7 @@ CREATE TABLE parkingHistory (
     FOREIGN KEY (ph_spotskey) REFERENCES spots(s_spotskey)
 );
 
+-- Max of 300 spots total
 CREATE TABLE spots (
     s_spotskey integer PRIMARY KEY,
     s_zonekey integer not null,
@@ -76,6 +77,7 @@ CREATE TABLE zoneAssignment (
     FOREIGN KEY (za_lotkey) REFERENCES lot(l_lotkey)
 );
 
+-- Lots: Bellevue, Scholars, North Bowl
 CREATE TABLE lot (
     l_lotkey integer PRIMARY KEY,
     l_name varchar(20) not null,

@@ -1,7 +1,7 @@
 .mode "csv"
 .separator "|"
 
-.import users.tbl cusers
+.import users.tbl users
 .import permit.tbl permit
 .import permitType.tbl permitType
 .import vehicles.tbl vehicles
