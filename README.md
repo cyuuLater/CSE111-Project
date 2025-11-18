@@ -20,6 +20,16 @@ UML diagrams, the database design as E/R diagrams, the conversion from the E/R d
 Implement the database layer. By this time you should be done with writing queries/updates/views in SQL. Design the user interface and provide a 
 prototype of the entire system.
 
+Zones
+- H Zone: On-Campus Students
+- Green Zone: Everyone (Guests, Off-Campus Students, On-Campus Students, Faculty)
+- Gold: Faculty
+
+Zone Assignments:
+- Scholars Lot: H (60)
+- Bellevue: Green (80), Gold (20), H (20)
+- North Bowl: Gold (100)
+
 # Phase 3
 The system is completely implemented, optimized, and tested. You are required to give a presentation/demo of your work and to hand-in a report of 
 the project containing the design documents.
