@@ -9,7 +9,7 @@ CREATE TABLE users (
 
 CREATE TABLE permit (
     p_permitkey integer PRIMARY KEY,
-    p_userkey integer not null, -- I'm thinking since we have one permit for a vehicle and some users have multiple cars, we should do 1:M between users and permit
+    p_userkey integer not null,
     p_vehicleskey integer not null,
     p_permittypekey integer not null,
     p_permitnum varchar(20) NOT NULL,
@@ -20,6 +20,7 @@ CREATE TABLE permit (
     FOREIGN KEY (p_vehicleskey) REFERENCES vehicles(v_vehicleskey),
     FOREIGN KEY (p_permittypekey) REFERENCES permitType(pt_permittypekey)
 );
+
 
 CREATE TABLE permitType (
     pt_permittypekey integer PRIMARY KEY,
@@ -50,7 +51,6 @@ CREATE TABLE parkingHistory (
     FOREIGN KEY (ph_spotskey) REFERENCES spots(s_spotskey)
 );
 
--- Max of 300 spots total
 CREATE TABLE spots (
     s_spotskey integer PRIMARY KEY,
     s_zonekey integer not null,
@@ -77,7 +77,6 @@ CREATE TABLE zoneAssignment (
     FOREIGN KEY (za_lotkey) REFERENCES lot(l_lotkey)
 );
 
--- Lots: Bellevue, Scholars, North Bowl
 CREATE TABLE lot (
     l_lotkey integer PRIMARY KEY,
     l_name varchar(20) not null,
