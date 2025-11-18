@@ -75,7 +75,22 @@ ORDER BY s.s_spotskey;
 
 
 -- 16. 
-
+SELECT s.s_num AS spot, z.z_type AS zone, l.l_name AS lot
+FROM users u
+    JOIN vehicles v ON v.v_userkey = u.u_userkey
+    JOIN permit p ON p.p_vehicleskey = v.v_vehicleskey
+    JOIN permitType pt ON pt.pt_permittypekey = p.p_permittypekey
+    JOIN spots s ON s.s_zonekey = (
+            CASE 
+                WHEN pt.pt_permittypekey = 6 THEN 1   -- Off-Campus Student → Green Zone
+            END
+        )
+    JOIN zone z ON z.z_zonekey = s.s_zonekey
+    JOIN lot l ON l.l_lotkey = s.s_lotkey
+WHERE u.u_name = 'Daisy Nguyen'
+    AND s.s_status = 0 -- available
+    AND s.s_isactive = 1
+ORDER BY s.s_num;
 
 
 -- 17. 
