@@ -47,10 +47,16 @@
 
 
 -- 13. 
+SELECT s_num FROM spots WHERE s_status = 1;
 
 
 
 -- 14. 
+SELECT s.s_spotskey, s.s_num, z.z_type AS zone, l.l_name AS lot
+FROM spots s
+    JOIN zone z ON s.s_zonekey = z.z_zonekey
+    JOIN lot l ON s.s_lotkey = l.l_lotkey
+WHERE s.s_status = 0;   -- 0 = available, 1 = occupied
 
 
 
