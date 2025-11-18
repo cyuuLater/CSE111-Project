@@ -59,8 +59,10 @@ CREATE TABLE spots (
     s_isactive BOOL,
     s_latitude DECIMAL(9,6),
     s_longitude DECIMAL(9,6),
+    s_lotkey integer not null,
 
-    FOREIGN KEY (s_zonekey) REFERENCES zone(z_zonekey)
+    FOREIGN KEY (s_zonekey) REFERENCES zone(z_zonekey),
+    FOREIGN KEY (s_lotkey) REFERENCES lot(l_lotkey)
 );
 
 CREATE TABLE zone (
