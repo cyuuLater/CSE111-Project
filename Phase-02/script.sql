@@ -14,7 +14,7 @@ FROM spots s
     JOIN lot l ON l.l_lotkey = s.s_lotkey
 ORDER BY l.l_name, 
     SUBSTR(s.s_num,1,1), -- A, B, C, D, E
-    CAST(SUBSTR(s.s_num,2) AS INT); -- 1..100
+    CAST(SUBSTR(s.s_num,2) AS INT); -- 1, 2, 3, ...
 
 
 -- 3. Check which users are currently not parked anywhere and their vehicle plate numbers.
@@ -27,23 +27,17 @@ WHERE ph.ph_vehicleskey IS NULL
 ORDER BY u.u_userkey;
 
 
--- 4. Find the users who haven't parked yet and their cooresponding vehicle plate numbers.
-SELECT u.u_name, v.v_plateno
-FROM users u
-JOIN vehicles v ON u.u_userkey = v.v_userkey
-LEFT JOIN parkingHistory ph 
-    ON ph.ph_vehicleskey = v.v_vehicleskey
-WHERE ph.ph_vehicleskey IS NULL
-ORDER BY u.u_userkey;
-
-
--- 5. Find which spots are available along with their corresponding zone, lot, and coordinates.
+-- 4. Find which spots are available along with their corresponding zone, lot, and coordinates.
 SELECT s.s_spotskey, s.s_num, z.z_type AS zone, 
        l.l_name AS lot, s.s_latitude, s.s_longitude
 FROM spots s
     JOIN zone z ON s.s_zonekey = z.z_zonekey
     JOIN lot l ON s.s_lotkey = l.l_lotkey
 WHERE s.s_status = 0; -- 0 = available, 1 = occupied
+
+
+-- 5. 
+
 
 
 
@@ -66,11 +60,21 @@ WHERE p_permitkey = 31;
 
 
 -- 9. DELETE any permits passed their expiration dates.
+INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, p_permitnum, p_issuedate, p_expirationdate)
+VALUES(999, 31, 31, 5, 'PRM999', '2025-01-01', '2025-01-02');
 DELETE FROM permit
 WHERE p_expirationdate < '2025-11-20';
 
 
--- 10. Jenna Moore leaves from her spot. Delete that record from parking history accordingly.
+-- 10. Jenna Moore occupies a spot.
+INSERT INTO parkingHistory(ph_parkinghistkey, ph_vehicleskey, ph_spotskey, ph_arrivaltime, ph_departuretime)
+VALUES(21, 31, 20, '2025-11-20 10:50:00', NULL);
+UPDATE spots
+SET s_status = 1
+WHERE s_spotskey = 20;
+
+
+-- 11. Jenna Moore leaves from her spot. Delete that record from parking history accordingly.
 DELETE FROM parkingHistory
 WHERE ph_vehicleskey = 31
     AND ph_spotskey = 20
@@ -80,19 +84,16 @@ SET s_status = 0
 WHERE s_spotskey = 20;
 
 
--- 11. Jenna Moore occupies a spot.
-INSERT INTO parkingHistory(ph_parkinghistkey, ph_vehicleskey, ph_spotskey, ph_arrivaltime, ph_departuretime)
-VALUES(21, 31, 20, '2025-11-20', NULL);
-UPDATE spots
-SET s_status = 1
-WHERE s_spotskey = 20;
-
-
 -- 12. Let's say A60-A80 are needed for construction. Update all those spots to inactive. Can also assume users
 --     left/don't park in those spots before starting construction.
 UPDATE spots
 SET s_isactive = 0
 WHERE s_num BETWEEN 'A60' AND 'A80';
+
+
+-- 13. Zachary wants to park again today (2025-11-20). He needs to apply for another hourly guest permit for an event.l_capacity
+--     Track down which spots he's allowed to park in and have him park in one of those spots. Afterwards, he leaves his spot,
+--     must update the spot occupancy accordingly.
 
 
 
