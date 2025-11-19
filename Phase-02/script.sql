@@ -60,13 +60,14 @@ VALUES(31, 31, '9XKT221', 'CA', 'Toyota', 'Corolla', 'Blue');
 
 -- 8. Have a user apply for an Off-Campus Semester permit.
 INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, p_permitnum, p_issuedate, p_expirationdate)
-VALUES(31, 31, 31, 5, 'PRM031', '2025-02-14', '2025-08-14');
-
+VALUES(31, 31, 31, 5, 'PRM031', '2025-11-20', '2025-12-23');
+DELETE FROM permit
+WHERE p_permitkey = 31;
 
 
 -- 9. DELETE any permits passed their expiration dates.
 DELETE FROM permit
-WHERE p_expirationdate < DATE('now');
+WHERE p_expirationdate < '2025-11-20';
 
 
 -- 10. Jenna Moore leaves from her spot. Delete that record from parking history accordingly.
@@ -81,7 +82,7 @@ WHERE s_spotskey = 20;
 
 -- 11. Jenna Moore occupies a spot.
 INSERT INTO parkingHistory(ph_parkinghistkey, ph_vehicleskey, ph_spotskey, ph_arrivaltime, ph_departuretime)
-VALUES(21, 31, 20, DATETIME('now'), NULL);
+VALUES(21, 31, 20, '2025-11-20', NULL);
 UPDATE spots
 SET s_status = 1
 WHERE s_spotskey = 20;
