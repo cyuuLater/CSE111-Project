@@ -36,11 +36,12 @@ WHERE s.s_status = 0; -- 0 = available, 1 = occupied
 
 
 -- 5. Show how many spots left are available in each lot.
-SELECT l.l_name,
-    (SELECT COUNT(*) 
+SELECT l.l_name, (
+    SELECT COUNT(*) 
     FROM spots s 
     WHERE s.s_lotkey = l.l_lotkey
-        AND s.s_status = 0) AS available_spots
+        AND s.s_status = 0
+    ) AS available_spots
 FROM lot l;
 
 
@@ -80,13 +81,11 @@ VALUES(31, 31, '9XKT221', 'CA', 'Toyota', 'Corolla', 'Blue');
 -- 10. Have Jenna Moore apply for an Off-Campus Semester permit.
 INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, p_permitnum, p_issuedate, p_expirationdate)
 VALUES(31, 31, 31, 5, 'PRM031', '2025-11-20', '2025-12-23');
-DELETE FROM permit
-WHERE p_permitkey = 31;
 
 
 -- 11. DELETE any permits passed their expiration dates.
 INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, p_permitnum, p_issuedate, p_expirationdate)
-VALUES(999, 31, 31, 5, 'PRM999', '2025-01-01', '2025-01-02');
+VALUES(999, 32, 32, 5, 'PRM999', '2025-01-01', '2025-01-02');
 DELETE FROM permit
 WHERE p_expirationdate < '2025-11-20';
 
@@ -116,36 +115,42 @@ SET s_isactive = 0
 WHERE s_num BETWEEN 'A60' AND 'A80';
 
 
--- 15. Any user can claim spots B11-B20 and E60-E100 if it's 'nighttime' (in this case, those spots become green zones).
--- Nighttime (7pm-6am), anyone can park in these spots
+-- 15. Any user can claim spots in North Bowl if it's 'nighttime' (in this case, those spots become green zones) and the zone
+--     assignment for this will be changed from gold to green.
 UPDATE spots
 SET s_zonekey = 1 -- Green
-WHERE ((s_num LIKE 'B%' AND CAST(substr(s_num, 2) AS INTEGER) BETWEEN 11 AND 20) OR
-        (s_num LIKE 'E%' AND CAST(substr(s_num, 2) AS INTEGER) BETWEEN 60 AND 100)
-    ) AND (
-        CAST(strftime('%H', 'now', '-08:00') AS INTEGER) >= 19
-        OR CAST(strftime('%H', 'now', '-08:00') AS INTEGER) < 6
-    );
+WHERE (s_num LIKE 'E%') 
+    AND (CAST(strftime('%H', 'now', '-08:00') AS INTEGER) >= 19 
+        OR CAST(strftime('%H', 'now', '-08:00') AS INTEGER) < 6);
+UPDATE zoneAssignment
+SET za_zonekey = 1 -- Green
+WHERE za_lotkey = 3  -- North Bowl
+    AND za_zonekey = 2
+    AND (CAST(strftime('%H', 'now', '-08:00') AS INTEGER) >= 19
+        OR CAST(strftime('%H', 'now', '-08:00') AS INTEGER) < 6);
 
--- 16. During 'daytime', spots B11-B20 and E60-E100 must be reserved for Faculty only (in this case, gold zones).
---     Users that aren't Faculty can't claim these spots at this time but can keep the spots claimed if taken
---     before nighttime as long as they unclaim it in a timely manner.
+-- 16. During 'daytime', spots North Bowl is now reserved for only faculty. Change those spots from green to gold and update the
+--     zone assignment accordingly
 UPDATE spots
 SET s_zonekey = 2 -- Gold
-WHERE ((s_num LIKE 'B%' AND CAST(substr(s_num, 2) AS INTEGER) BETWEEN 11 AND 20) OR
-        (s_num LIKE 'E%' AND CAST(substr(s_num, 2) AS INTEGER) BETWEEN 60 AND 100)
-    ) AND (
-        CAST(strftime('%H', 'now', '-08:00') AS INTEGER) >= 6
-        AND CAST(strftime('%H', 'now', '-08:00') AS INTEGER) < 19
-    );
+WHERE (s_num LIKE 'E%') 
+    AND (CAST(strftime('%H', 'now', '-08:00') AS INTEGER) >= 6
+        AND CAST(strftime('%H', 'now', '-08:00') AS INTEGER) < 19);
+UPDATE zoneAssignment
+SET za_zonekey = 2 -- Gold
+WHERE za_lotkey = 3  -- North Bowl
+    AND za_zonekey = 1
+    AND (CAST(strftime('%H', 'now', '-08:00') AS INTEGER) >= 6
+        AND CAST(strftime('%H', 'now', '-08:00') AS INTEGER) < 19);
 
 -- 17. Reset no matter what time it is (for demo purposes)
 UPDATE spots
 SET s_zonekey = 2
-WHERE 
-    (s_num LIKE 'B%' AND CAST(substr(s_num, 2) AS INTEGER) BETWEEN 11 AND 20) OR
-    (s_num LIKE 'E%' AND CAST(substr(s_num, 2) AS INTEGER) BETWEEN 60 AND 100);
-
+WHERE s_num LIKE 'E%';
+UPDATE zoneAssignment
+SET za_zonekey = 2 -- Gold
+WHERE za_lotkey = 3  -- North Bowl
+    AND za_zonekey = 1;
 
 
 -- =====   COMPLICATED QUERIES   ===== --
@@ -212,3 +217,27 @@ FROM spots s
     JOIN users u ON u.u_userkey = v.v_userkey
 WHERE s.s_num = 'E88'
 ORDER BY u.u_name;
+
+
+-- 22. Show which spot Ryan Patel is parked in (along with the lot info, zone info, and coordinates).
+SELECT s.s_num AS spot, l.l_name AS lot, z.z_type AS zone, s.s_latitude, s.s_longitude
+FROM users u
+    JOIN vehicles v ON u.u_userkey = v.v_userkey
+    JOIN parkingHistory ph ON v.v_vehicleskey = ph.ph_vehicleskey
+    JOIN spots s ON ph.ph_spotskey = s.s_spotskey
+    JOIN zone z ON s.s_zonekey = z.z_zonekey
+    JOIN lot l ON s.s_lotkey = l.l_lotkey
+WHERE u.u_name = 'Ryan Patel';
+
+
+-- 23. Check how many spots are available in each zone per lot.
+SELECT l.l_name AS lot, z.z_type AS zone, COUNT(s.s_spotskey) AS available_spots
+FROM spots s
+    JOIN lot l ON s.s_lotkey = l.l_lotkey
+    JOIN zone z ON s.s_zonekey = z.z_zonekey
+    JOIN zoneAssignment za ON za.za_zonekey = z.z_zonekey
+        AND za.za_lotkey = l.l_lotkey
+WHERE s.s_status = 0
+    AND s.s_isactive = 1
+    AND za.za_isactive = 1
+GROUP BY l.l_name, z.z_type;
