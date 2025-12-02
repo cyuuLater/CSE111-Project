@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<title>Sign Up</title>
+<!-- Note: Removed reference to 'functions.js' as login is handled by POST -->
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<body>
+    <h1>Sign Up</h1>
+    <div class="div_border centerAlign">
+        <form method="POST" action="{{ url_for('signup_process') }}">
+            <table>
+                <thead class="User_Inputs">
+                    <tr>
+                        <td>Username</td>
+                        <td><input type="text" name="username" id="Username" required></td>
+                    </tr>
+                    <tr>
+                        <td>Email</td>
+                        <td><input type="email" name="email" id="Email" required></td>
+                    </tr>
+                    <tr>
+                        <td>Password</td>
+                        <td><input type="password" name="password" id="Password" required></td>
+                    </tr>
+                    <tr>
+                        <td>Confirm Password</td>
+                        <td><input type="password" name="confirm_password" id="ConfirmPassword" required></td>
+                    </tr>
+                </thead>
+            </table>
+            <div class="button_container centerAlign mt-4">
+                <div>
+                    <button type="submit" class="button_login">Sign Up</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <p class="centerAlign mt-4">Already have an account? <a href="{{ url_for('login') }}">Log In</a></p>
+</body>
