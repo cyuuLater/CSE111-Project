@@ -1,11 +1,9 @@
 # --- IMPORTS ---
+import sqlite3
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_login import UserMixin, LoginManager, login_user, logout_user, login_required, current_user 
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt 
-from flask_admin import Admin # type: ignore
-from sqlalchemy import or_ # Needed for login query
-import sqlite3
 
 # --- 1. APP AND EXTENSION INITIALIZATION ---
 app = Flask(__name__)
@@ -18,7 +16,6 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app) 
 login_manager.login_view = 'login' # Correct endpoint name (matches function name)
 bcrypt = Bcrypt(app) 
-admin = Admin(app, name='microblog') 
 
 
 
@@ -28,7 +25,7 @@ class User(db.Model, UserMixin):
     __tablename__ = 'users'
     u_userkey = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20), name='u_name', nullable=False) 
-    email = db.Column(db.String(20), name='u_email', unique=True, nullable=False) 
+    email = db.Column(db.String(60), name='u_email', unique=True, nullable=False) 
     password = db.Column(db.String(120), name='u_password', nullable=False) 
 
     def get_id(self):
