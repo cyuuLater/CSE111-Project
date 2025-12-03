@@ -1,26 +1,25 @@
-# --- IMPORTS ---
 import sqlite3
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_login import UserMixin, LoginManager, login_user, logout_user, login_required, current_user 
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt 
 
-# --- 1. APP AND EXTENSION INITIALIZATION ---
 app = Flask(__name__)
 conn = sqlite3.connect('instance/data.sqlite', check_same_thread=False)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.sqlite'
 app.config['SECRET_KEY'] = 'super secret key' 
 db = SQLAlchemy(app)
 
-# Initialize Flask Extensions
 login_manager = LoginManager(app) 
 login_manager.login_view = 'login' # Correct endpoint name (matches function name)
-bcrypt = Bcrypt(app) 
+bcrypt = Bcrypt(app) # Needed for hashing passwords
 
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# --- 2. USER MODEL AND USER LOADER  ---
+# --- USER MODEL AND USER LOADER  ---
+# ----------------------------------------------------------------------------------------------------------------------
+
 class User(db.Model, UserMixin): 
     __tablename__ = 'users'
     u_userkey = db.Column(db.Integer, primary_key=True)
@@ -38,7 +37,12 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-# --- 3. ROUTES: SIGN UP  ---
+
+# ----------------------------------------------------------------------------------------------------------------------
+# --- LOGIN AND SIGN UP  ---
+# ----------------------------------------------------------------------------------------------------------------------
+
+# -- Sign up  --
 @app.route('/signup', methods=['GET'])
 def signup():
     return render_template("signup.html") 
@@ -73,13 +77,14 @@ def signup_process():
     return redirect(url_for('login')) 
 
 
-# --- 4. ROUTES: LOGIN AND LOGOUT ---
+# -- Initialize default routes --
 @app.route('/')
 def index():
     if current_user.is_authenticated:
-        return redirect(url_for('home'))
+        return redirect(url_for('home', username=current_user.username))
     return redirect(url_for('login'))
 
+# -- Login and Logout --
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
@@ -95,7 +100,7 @@ def login():
 
     if user and bcrypt.check_password_hash(user.password, password):
         login_user(user, remember=False)
-        return redirect(url_for('home'))
+        return redirect(url_for('home', username=current_user.username))
     else:
         error = 'Invalid login ID or password'
         return render_template('login.html', error=error)
@@ -106,16 +111,76 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- Home page route ---
-@app.route('/home')
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# --- HOME PAGE ROUTES  ---
+# ----------------------------------------------------------------------------------------------------------------------
+
+# -- Home page route --
+@app.route('/home/<username>')
 @login_required
-def home():
+def home(username):
     return render_template("home.html", username=current_user.username)
+
+# -- Redirect to map page --
+@app.route('/map/<username>')
+@login_required
+def map_page(username):
+    return render_template("map.html", username=current_user.username)
+
+# -- First, redirect to the page to register a vehicle (apply for permit option) --
+@app.route('/reg_vehicle/<username>')
+@login_required
+def reg_vehicle(username):
+    return render_template("reg_vehicle.html", username=current_user.username)
+
+# -- Redirect to view permit page --
+@app.route('/view_permit/<username>')
+@login_required
+def view_permit(username):
+    return render_template("view_permit.html", username=current_user.username)
 
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# --- 5. APP EXECUTION ---
+# --- APPLY FOR PERMIT PAGE  ---
+# ----------------------------------------------------------------------------------------------------------------------
+
+# -- User inputs their vehicle information first (if they don't have one) --
+# @app.route('/reg_vehicle/<username>', methods=['GET', 'POST'])
+# @login_required
+# def reg_vehicle_process(username):
+
+# -- Then, take the user to the page to apply for a permit --
+@app.route('/apply_permit/<username>')
+@login_required
+def apply_permit(username):
+    return render_template("apply_permit.html", username=current_user.username)
+
+# -- User then needs to select a permit type and duration --
+# @app.route('/apply_permit/<username>', methods=['GET', 'POST'])
+# @login_required
+# def apply_permit_process(username):
+
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# --- VIEW PERMIT PAGE  ---
+# ----------------------------------------------------------------------------------------------------------------------
+
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# --- MAP PAGE  ---
+# ----------------------------------------------------------------------------------------------------------------------
+
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# --- APP EXECUTION  ---
+# ----------------------------------------------------------------------------------------------------------------------
+
 if __name__ == '__main__':
     resetTheTable = False  
 

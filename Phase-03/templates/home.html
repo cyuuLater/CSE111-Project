@@ -2,10 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Home</title>
+    <title>Register Vehicle</title>
 </head>
+
 <body>
     <h1>Welcome, {{ username }}!</h1>
+    <button onclick="window.location.href='{{ url_for('map_page', username=username) }}'">View Map/Parking Location</button>
+    <button onclick="window.location.href='{{ url_for('view_vehicles', username=username) }}'">View Vehicles</button>
+    <button onclick="window.location.href='{{ url_for('apply_permit', username=username) }}'">Apply for Permit</button>
+    <button onclick="window.location.href='{{ url_for('view_permit', username=username) }}'">View Permit</button>
     <a href="{{ url_for('logout') }}">Logout</a>
 </body>
 </html>
