@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Vehicles</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>My Vehicles</h1>
+            <a href="{{ url_for('home') }}" class="back-link">← Back to Home</a>
+        </header>
+
+        <main>
+            <h2>Registered Vehicles</h2>
+            
+            {% if vehicles %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Plate Number</th>
+                            <th>Plate State</th>
+                            <th>Maker</th>
+                            <th>Model</th>
+                            <th>Color</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vehicle in vehicles %}
+                        <tr>
+                            <td>{{ vehicle[1] }}</td>
+                            <td>{{ vehicle[2] }}</td>
+                            <td>{{ vehicle[3] }}</td>
+                            <td>{{ vehicle[4] }}</td>
+                            <td>{{ vehicle[5] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="no-data">You haven't registered any vehicles yet.</p>
+            {% endif %}
+            
+            <div class="button-container">
+                <button class="primary-btn" onclick="window.location.href='{{ url_for('reg_vehicle') }}'">
+                    Register New Vehicle
+                </button>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

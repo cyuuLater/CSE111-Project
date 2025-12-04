@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Vehicle</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Register New Vehicle</h1>
+            <a href="{{ url_for('view_vehicles') }}" class="back-link">← Back to My Vehicles</a>
+        </header>
+
+        <main></main>
+            <form method="POST" action="{{ url_for('reg_vehicle') }}">
+                <div class="form-group">
+                    <label for="plate_no">Plate Number: </label>
+                    <input type="text" id="plate_no" name="plate_no" required placeholder="e.g., ABC1234" maxlength="7">
+                </div>
+
+                <div class="form-group">
+                    <label for="plate_state">Plate State: </label>
+                    <select id="plate_state" name="plate_state" required>
+                        <option value="">-- Select State --</option>
+                        <option value="CA">California (CA)</option>
+                        <option value="NV">Nevada (NV)</option>
+                        <option value="OR">Oregon (OR)</option>
+                        <option value="AZ">Arizona (AZ)</option>
+                        <option value="TX">Texas (TX)</option>
+                        <option value="WA">Washington (WA)</option>
+                        <!-- Add more states as needed -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="maker">Maker: </label>
+                    <input type="text" id="maker" name="maker" required placeholder="e.g., Toyota, Honda, Ford">
+                </div>
+
+                <div class="form-group">
+                    <label for="model">Model: </label>
+                    <input type="text" id="model" name="model" required placeholder="e.g., Camry, Civic, F-150">
+                </div>
+
+                <div class="form-group">
+                    <label for="color">Color: </label>
+                    <input type="text" id="color" name="color" required placeholder="e.g., Blue, Red, Silver">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="primary-btn">Register Vehicle</button>
+                    <button type="button" class="secondary-btn" onclick="window.location.href='{{ url_for('view_vehicles') }}'">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </main>
+    </div>
+</body>
+</html>

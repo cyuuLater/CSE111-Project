@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Permit</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>My Parking Permit</h1>
+            <a href="{{ url_for('home') }}" class="back-link">← Back to Home</a>
+        </header>
+
+        <main>
+            <h2>Current Permit</h2>
+            
+            {% if has_permit %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Vehicle</th>
+                            <th>Permit Type</th>
+                            <th>Permit Number</th>
+                            <th>Issue Date</th>
+                            <th>Expiration Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for permit in permits %}
+                        <tr>
+                            <td>{{ permit[0] }} - {{ permit[1] }} {{ permit[2] }}</td>
+                            <td>{{ permit[4] }} ({{ permit[5] }})</td>
+                            <td>{{ permit[6] }}</td>
+                            <td>{{ permit[7] }}</td>
+                            <td>{{ permit[8] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <div class="permit-info">
+                    <p class="info-message">✓ You have an active parking permit.</p>
+                    <p class="note">Note: You can only have one active permit at a time.</p>
+                </div>
+            {% else %}
+                <p class="no-data">You don't have an active parking permit.</p>
+                
+                <div class="button-container">
+                    <button class="primary-btn" onclick="window.location.href='{{ url_for('apply_permit') }}'">
+                        Apply for Permit
+                    </button>
+                </div>
+            {% endif %}
+        </main>
+    </div>
+</body>
+</html>
