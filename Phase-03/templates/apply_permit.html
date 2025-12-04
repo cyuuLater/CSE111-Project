@@ -9,8 +9,8 @@
 <body>
     <div class="container">
         <header>
+            <a href="{{ url_for('view_permit') }}" class="back-link">← Back</a>
             <h1>Apply for Parking Permit</h1>
-            <a href="{{ url_for('view_permit') }}" class="back-link">← Back to My Permit</a>
         </header>
 
         <main>
@@ -31,10 +31,6 @@
                         </option>
                         {% endfor %}
                     </select>
-                    <small class="form-hint">
-                        Don't see your vehicle? 
-                        <a href="{{ url_for('reg_vehicle') }}">Register a new vehicle</a>
-                    </small>
                 </div>
 
                 <div class="form-group">

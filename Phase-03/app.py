@@ -32,6 +32,7 @@ class User(db.Model, UserMixin):
     def __repr__(self):
         return f'<User {self.username}>'
 
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -46,6 +47,7 @@ def load_user(user_id):
 @app.route('/signup', methods=['GET'])
 def signup():
     return render_template("signup.html") 
+
 
 @app.route('/signup', methods=['POST']) 
 def signup_process():
@@ -84,6 +86,7 @@ def index():
         return redirect(url_for('home', username=current_user.username))
     return redirect(url_for('login'))
 
+
 # -- Login and Logout --
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -105,6 +108,7 @@ def login():
         error = 'Invalid login ID or password'
         return render_template('login.html', error=error)
 
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -114,7 +118,7 @@ def logout():
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# --- HOME PAGE ROUTES  ---
+# --- HOME PAGE ROUTE  ---
 # ----------------------------------------------------------------------------------------------------------------------
 
 # -- Home page route --
@@ -123,16 +127,17 @@ def logout():
 def home():
     return render_template("home.html", username=current_user.username)
 
-# -- Redirect to map page --
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# --- MAP PAGE  ---
+# ----------------------------------------------------------------------------------------------------------------------
+
+# -- Redirect user to map page --
 @app.route('/map')
 @login_required
 def map_page():
     return render_template("map.html", username=current_user.username)
-
-# -- Redirect to view vehicles page (under vehicle functions) --
-
-
-# -- Redirect to view permit page (under permit functions) --
 
 
 
@@ -140,7 +145,7 @@ def map_page():
 # --- VIEW/REGISTER VEHICLE PAGE  ---
 # ----------------------------------------------------------------------------------------------------------------------
 
-# -- Display the users vehicle information --
+# -- Redirect user to page to display their registered vehicles --
 @app.route('/view_vehicles')
 @login_required
 def view_vehicles():
@@ -156,6 +161,7 @@ def view_vehicles():
     conn.close()
     
     return render_template("view_vehicles.html", vehicles=vehicles, username=current_user.username)
+
 
 # -- Redirect user to the page to register a vehicle --
 @app.route('/reg_vehicle', methods=['GET', 'POST'])
@@ -214,7 +220,7 @@ def reg_vehicle():
 # --- VIEW/APPLY FOR PERMIT PAGES  ---
 # ----------------------------------------------------------------------------------------------------------------------
 
-# -- Display the users permit information --
+# -- Redirect user to page that displays their permit information --
 @app.route('/view_permit')
 @login_required
 def view_permit():
@@ -239,17 +245,12 @@ def view_permit():
     
     return render_template('view_permit.html', permits=permits, has_permit=has_permit, username=current_user.username)
 
+
 # -- Redirect user to the page to apply for a permit --
 @app.route('/apply_permit', methods=['GET', 'POST'])
 @login_required
 def apply_permit():
     return render_template("apply_permit.html", username=current_user.username)
-
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-# --- MAP PAGE  ---
-# ----------------------------------------------------------------------------------------------------------------------
 
 
 
