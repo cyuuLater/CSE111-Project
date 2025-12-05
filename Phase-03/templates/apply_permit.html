@@ -92,41 +92,6 @@
                     </select>
                 </div>
 
-                <div class="permit-info-details">
-                    <h4>Permit Expiration Dates:</h4>
-                    <table class="permit-types-table">
-                        <thead>
-                            <tr>
-                                <th>Category</th>
-                                <th>Available Durations</th>
-                                <th>Expiration</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><strong>Faculty</strong></td>
-                                <td>Yearly, Semester</td>
-                                <td>May 19, 2026 / Dec 23, 2025</td>
-                            </tr>
-                            <tr>
-                                <td><strong>On-Campus Student</strong></td>
-                                <td>Yearly, Semester</td>
-                                <td>May 19, 2026 / Dec 23, 2025</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Off-Campus Student</strong></td>
-                                <td>Semester, Daily</td>
-                                <td>Dec 23, 2025 / Next day</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Guest</strong></td>
-                                <td>Daily, Hourly</td>
-                                <td>Next day / Same day</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
                 <div class="form-actions">
                     <button type="submit" class="primary-btn">Submit Application</button>
                     <button type="button" class="secondary-btn" onclick="window.location.href='{{ url_for('view_permit') }}'">Cancel</button>

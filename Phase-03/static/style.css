@@ -171,18 +171,6 @@ button:hover, .primary-btn:hover, .button_login:hover {
     margin-top: 30px;
 }
 
-/* ===== INFO DETAILS ===== */
-.permit-info-details {
-    background-color: #f8f9fa;
-    padding: 20px;
-    border-radius: 5px;
-}
-
-.permit-info-details h4 {
-    color: #003262;
-    margin-bottom: 15px;
-}
-
 /* ===== UTILITY CLASSES ===== */
 .centerAlign, .button-container, .button_container {
     text-align: center;

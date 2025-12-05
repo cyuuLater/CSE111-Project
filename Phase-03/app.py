@@ -233,7 +233,7 @@ def view_permit():
         FROM permit p
         JOIN permitType pt ON pt.pt_permittypekey = p.p_permittypekey
         JOIN vehicles v ON p.p_vehicleskey = v.v_vehicleskey
-        WHERE p.p_userkey = ? AND p.p_expirationdate >= DATE('now')
+        WHERE p.p_userkey = ? AND p.p_expirationdate >= DATE('now', '-08:00')
      """
     , [current_user.u_userkey])
     permits = cursor.fetchall()
@@ -255,7 +255,7 @@ def apply_permit():
         # Check if user already has an active permit
         cursor.execute("""
             SELECT COUNT(*) FROM permit 
-            WHERE p_userkey = ? AND p_expirationdate >= DATE('now')
+            WHERE p_userkey = ? AND p_expirationdate >= DATE('now', '-08:00')
         """
         , [current_user.u_userkey])
         
@@ -357,9 +357,9 @@ def apply_permit():
     elif permit_duration == 'Semester':
         expiration_date = '2025-12-23'
     elif permit_duration == 'Daily':
-        expiration_date = "DATE('now', '+1 day')"
+        expiration_date = "DATE('now', '-08:00', '+1 day')"
     elif permit_duration == 'Hourly':
-        expiration_date = "DATE('now')"
+        expiration_date = "DATE('now', '-08:00')"
     else:
         conn.close()
         return render_template('error.html', message="Unknown permit duration type.", username=current_user.username)
@@ -377,7 +377,7 @@ def apply_permit():
         sql = """
             INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, 
                               p_permitnum, p_issuedate, p_expirationdate)
-            VALUES(?, ?, ?, ?, ?, DATE('now'), ?)
+            VALUES(?, ?, ?, ?, ?, DATE('now', '-08:00'), ?)
         """
         cursor.execute(sql, [new_permit_key, current_user.u_userkey, vehicle_key, 
                             permit_type_key, permit_num, expiration_date])
@@ -385,7 +385,7 @@ def apply_permit():
         sql = f"""
             INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, 
                               p_permitnum, p_issuedate, p_expirationdate)
-            VALUES(?, ?, ?, ?, ?, DATE('now'), {expiration_date})
+            VALUES(?, ?, ?, ?, ?, DATE('now', '-08:00'), {expiration_date})
         """
         cursor.execute(sql, [new_permit_key, current_user.u_userkey, vehicle_key, 
                             permit_type_key, permit_num])
