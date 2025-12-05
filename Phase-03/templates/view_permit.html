@@ -41,16 +41,13 @@
                 </table>
                 
                 <div class="permit-info">
-                    <p class="info-message">✓ You have an active parking permit.</p>
-                    <p class="note">Note: You can only have one active permit at a time.</p>
+                    <p class="info-message">You have an active parking permit.</p>
                 </div>
             {% else %}
                 <p class="no-data">You don't have an active parking permit.</p>
                 
                 <div class="button-container">
-                    <button class="primary-btn" onclick="window.location.href='{{ url_for('apply_permit') }}'">
-                        Apply for Permit
-                    </button>
+                    <button class="primary-btn" onclick="window.location.href='{{ url_for('apply_permit') }}'">Apply for Permit</button>
                 </div>
             {% endif %}
         </main>

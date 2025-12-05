@@ -13,7 +13,13 @@
             <h1>Register New Vehicle</h1>
         </header>
 
-        <main></main>
+        <main>
+            {% if error %}
+                <div class="error-message">
+                    <p>⚠️ {{ error }}</p>
+                </div>
+            {% endif %}
+            
             <form method="POST" action="{{ url_for('reg_vehicle') }}">
                 <div class="form-group">
                     <label for="plate_no">Plate Number: </label>
@@ -51,9 +57,7 @@
 
                 <div class="form-actions">
                     <button type="submit" class="primary-btn">Register Vehicle</button>
-                    <button type="button" class="secondary-btn" onclick="window.location.href='{{ url_for('view_vehicles') }}'">
-                        Cancel
-                    </button>
+                    <button type="button" class="secondary-btn" onclick="window.location.href='{{ url_for('view_vehicles') }}'">Cancel</button>
                 </div>
             </form>
         </main>

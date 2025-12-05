@@ -3,14 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <title>UC Merced Parking Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
+<style>
+    p {
+        text-align: center;
+    }
+    .logout {
+        background-color: #a81725;
+
+    }
+    .logout:hover {
+        background-color: #cd2233;
+    }
+</style>
+
 <body>
-    <a href="{{ url_for('logout') }}">Logout</a>
-    <h1>UC Merced Parking Tracker</h1>
-    <p>Welcome, {{ username }}!</p>
-    <button onclick="window.location.href='{{ url_for('map_page', username=username) }}'">View Map/Parking Location</button>
-    <button onclick="window.location.href='{{ url_for('view_vehicles', username=username) }}'">View/Register Vehicles</button>
-    <button onclick="window.location.href='{{ url_for('view_permit', username=username) }}'">View/Apply for Permit</button>
+    <div class="home-container">
+        <header>
+            <h1>UC Merced Parking Tracker</h1>
+        </header>
+
+        <p>Welcome, {{ username }}!</p>
+        <button onclick="window.location.href='{{ url_for('map_page') }}'">View Map/Parking Location</button>
+        <button onclick="window.location.href='{{ url_for('view_vehicles') }}'">View/Register Vehicles</button>
+        <button onclick="window.location.href='{{ url_for('view_permit') }}'">View/Apply for Permit</button>
+        <button onclick="window.location.href='{{ url_for('logout') }}'" class="logout">Logout</button>
+    </div>
 </body>
 </html>

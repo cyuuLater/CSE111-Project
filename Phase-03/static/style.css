@@ -1,0 +1,189 @@
+/* ===== BASIC SETUP ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    padding: 20px;
+}
+
+/* ===== CONTAINERS ===== */
+.container, .home-container, .div_border {
+    max-width: 600px;
+    margin: 50px auto;
+    padding: 40px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.container {
+    max-width: 1000px;
+}
+
+.div_border {
+    max-width: 400px;
+    border: 2px solid #003262;
+}
+
+/* ===== HEADERS ===== */
+h1 {
+    color: #003262;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+h2 {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+header {
+    margin-bottom: 30px;
+    border-bottom: 2px solid #003262;
+    padding-bottom: 15px;
+}
+
+/* ===== LINKS ===== */
+a {
+    color: #003262;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.back-link {
+    font-size: 14px;
+}
+
+/* ===== TABLES ===== */
+/* Data tables (in .container) */
+.container table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.container table th, .container table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+}
+
+.container table thead {
+    background-color: #003262;
+    color: white;
+}
+
+.container table tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* Form tables (login/signup) */
+form table {
+    border: none !important;
+    width: auto;
+    margin: 0 auto;
+}
+
+form table th, form table td {
+    border: none !important;
+    padding: 8px;
+}
+
+form table input {
+    width: 200px;
+}
+
+/* ===== BUTTONS ===== */
+button, .primary-btn, .button_login {
+    background-color: #003262;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover, .primary-btn:hover, .button_login:hover {
+    background-color: #002145;
+}
+
+.secondary-btn {
+    background-color: #6c757d;
+}
+
+.secondary-btn:hover {
+    background-color: #5a6268;
+}
+
+/* Home page buttons - full width */
+.home-container button {
+    display: block;
+    width: 100%;
+    margin: 15px 0;
+    padding: 15px;
+}
+
+/* ===== FORMS ===== */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #333;
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.form-group input:focus, .form-group select:focus {
+    outline: none;
+    border-color: #003262;
+}
+
+.form-hint {
+    font-size: 14px;
+    color: #666;
+    margin-top: 5px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+/* ===== INFO DETAILS ===== */
+.permit-info-details {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+}
+
+.permit-info-details h4 {
+    color: #003262;
+    margin-bottom: 15px;
+}
+
+/* ===== UTILITY CLASSES ===== */
+.centerAlign, .button-container, .button_container {
+    text-align: center;
+}

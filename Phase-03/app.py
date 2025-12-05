@@ -82,8 +82,6 @@ def signup_process():
 # -- Initialize default routes --
 @app.route('/')
 def index():
-    if current_user.is_authenticated:
-        return redirect(url_for('home', username=current_user.username))
     return redirect(url_for('login'))
 
 
@@ -250,7 +248,152 @@ def view_permit():
 @app.route('/apply_permit', methods=['GET', 'POST'])
 @login_required
 def apply_permit():
-    return render_template("apply_permit.html", username=current_user.username)
+    conn = sqlite3.connect('instance/data.sqlite')
+    cursor = conn.cursor()
+    
+    if request.method == 'GET':
+        # Check if user already has an active permit
+        cursor.execute("""
+            SELECT COUNT(*) FROM permit 
+            WHERE p_userkey = ? AND p_expirationdate >= DATE('now')
+        """
+        , [current_user.u_userkey])
+        
+        # Check if user has registered any vehicles
+        cursor.execute("""
+            SELECT COUNT(*) FROM vehicles WHERE v_userkey = ?
+        """
+        , [current_user.u_userkey])
+        
+        # Get user's vehicles
+        cursor.execute("""
+            SELECT v_vehicleskey, v_plateno, v_maker, v_model
+            FROM vehicles WHERE v_userkey = ?
+            ORDER BY v_vehicleskey DESC
+        """
+        , [current_user.u_userkey])
+        vehicles = cursor.fetchall()
+        
+        # Get ALL permit types
+        cursor.execute("""
+            SELECT pt_permittypekey, pt_category, pt_duration 
+            FROM permitType
+            ORDER BY 
+                CASE pt_category
+                    WHEN 'Faculty' THEN 1
+                    WHEN 'On-Campus Student' THEN 2
+                    WHEN 'Off-Campus Student' THEN 3
+                    WHEN 'Guest' THEN 4
+                END,
+                CASE pt_duration
+                    WHEN 'Yearly' THEN 1
+                    WHEN 'Semester' THEN 2
+                    WHEN 'Daily' THEN 3
+                    WHEN 'Hourly' THEN 4
+                END
+        """)
+        permit_types = cursor.fetchall()
+        
+        conn.close()
+        
+        return render_template('apply_permit.html', vehicles=vehicles, permit_types=permit_types, username=current_user.username)
+    
+    # POST: Process permit application
+    vehicle_key = request.form.get('vehicle_key')
+    permit_type_key = request.form.get('permit_type_key')
+    permit_category = request.form.get('permit_category')  # We get this too now
+    
+    if not all([vehicle_key, permit_type_key, permit_category]):
+        error = "Please complete all steps: select vehicle, category, and duration."
+        
+        cursor.execute("""
+            SELECT v_vehicleskey, v_plateno, v_maker, v_model
+            FROM vehicles WHERE v_userkey = ?
+        """, [current_user.u_userkey])
+        vehicles = cursor.fetchall()
+        
+        cursor.execute("""
+            SELECT pt_permittypekey, pt_category, pt_duration 
+            FROM permitType
+            ORDER BY pt_category, pt_duration
+        """)
+        permit_types = cursor.fetchall()
+        
+        conn.close()
+        
+        return render_template('apply_permit.html', vehicles=vehicles, permit_types=permit_types, error=error, username=current_user.username)
+    
+    # Verify vehicle belongs to user
+    cursor.execute("""
+        SELECT COUNT(*) FROM vehicles 
+        WHERE v_vehicleskey = ? AND v_userkey = ?
+    """, [vehicle_key, current_user.u_userkey])
+    
+    if cursor.fetchone()[0] == 0:
+        conn.close()
+        return render_template('error.html', message="Invalid vehicle selection.", username=current_user.username)
+    
+    # Get the permit type to verify category matches and get duration
+    cursor.execute("""
+        SELECT pt_category, pt_duration FROM permitType 
+        WHERE pt_permittypekey = ?
+    """, [permit_type_key])
+    
+    result = cursor.fetchone()
+    if not result:
+        conn.close()
+        return render_template('error.html', message="Invalid permit type selection.", username=current_user.username)
+    
+    db_category, permit_duration = result
+    
+    # Verify the category matches (security check)
+    if db_category != permit_category:
+        conn.close()
+        return render_template('error.html', message="Permit type does not match selected category.", username=current_user.username)
+    
+    # Determine expiration date based on duration
+    if permit_duration == 'Yearly':
+        expiration_date = '2026-05-19'
+    elif permit_duration == 'Semester':
+        expiration_date = '2025-12-23'
+    elif permit_duration == 'Daily':
+        expiration_date = "DATE('now', '+1 day')"
+    elif permit_duration == 'Hourly':
+        expiration_date = "DATE('now')"
+    else:
+        conn.close()
+        return render_template('error.html', message="Unknown permit duration type.", username=current_user.username)
+    
+    # Get next permit key
+    cursor.execute("SELECT MAX(p_permitkey) FROM permit")
+    max_key = cursor.fetchone()[0]
+    new_permit_key = (max_key or 0) + 1
+    
+    # Generate permit number
+    permit_num = f'PRM{new_permit_key:04d}'
+    
+    # Insert permit with correct expiration date
+    if permit_duration in ['Yearly', 'Semester']:
+        sql = """
+            INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, 
+                              p_permitnum, p_issuedate, p_expirationdate)
+            VALUES(?, ?, ?, ?, ?, DATE('now'), ?)
+        """
+        cursor.execute(sql, [new_permit_key, current_user.u_userkey, vehicle_key, 
+                            permit_type_key, permit_num, expiration_date])
+    else:
+        sql = f"""
+            INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, 
+                              p_permitnum, p_issuedate, p_expirationdate)
+            VALUES(?, ?, ?, ?, ?, DATE('now'), {expiration_date})
+        """
+        cursor.execute(sql, [new_permit_key, current_user.u_userkey, vehicle_key, 
+                            permit_type_key, permit_num])
+    
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('view_permit'))
 
 
 

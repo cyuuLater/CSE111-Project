@@ -6,6 +6,42 @@
     <title>Apply for Permit</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
+<script>
+        // Filter duration options based on selected category
+        function updateDurationOptions() {
+            const category = document.getElementById('permit_category').value;
+            const durationSelect = document.getElementById('permit_type_key');
+            const allOptions = durationSelect.querySelectorAll('option[data-category]');
+            
+            // Hide all options first
+            allOptions.forEach(option => {
+                option.style.display = 'none';
+                option.disabled = true;
+            });
+            
+            // Show only options for selected category
+            if (category) {
+                const matchingOptions = durationSelect.querySelectorAll(`option[data-category="${category}"]`);
+                matchingOptions.forEach(option => {
+                    option.style.display = 'block';
+                    option.disabled = false;
+                });
+                durationSelect.disabled = false;
+            } else {
+                durationSelect.disabled = true;
+            }
+            
+            // Reset duration selection
+            durationSelect.value = '';
+        }
+        
+        // Initialize on page load
+        window.onload = function() {
+            document.getElementById('permit_type_key').disabled = true;
+        };
+    </script>
+
 <body>
     <div class="container">
         <header>
@@ -14,15 +50,15 @@
         </header>
 
         <main>
-            <!-- {% if error %}
+            {% if error %}
                 <div class="error-message">
                     <p>⚠️ {{ error }}</p>
                 </div>
-            {% endif %} -->
+            {% endif %}
 
             <form method="POST" action="{{ url_for('apply_permit') }}">
                 <div class="form-group">
-                    <label for="vehicle_key">Select Vehicle:</label>
+                    <label for="vehicle_key">Select Vehicle: </label>
                     <select id="vehicle_key" name="vehicle_key" required>
                         <option value="">-- Choose Your Vehicle --</option>
                         {% for vehicle in vehicles %}
@@ -34,23 +70,66 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="permit_type_key">Select Permit Type:</label>
-                    <select id="permit_type_key" name="permit_type_key" required>
-                        <option value="">-- Choose Permit Type --</option>
+                    <label for="permit_category">Permit Category: </label>
+                    <select id="permit_category" name="permit_category" required onchange="updateDurationOptions()">
+                        <option value="">-- Choose Your Category --</option>
+                        <option value="Faculty">Faculty</option>
+                        <option value="On-Campus Student">On-Campus Student</option>
+                        <option value="Off-Campus Student">Off-Campus Student</option>
+                        <option value="Guest">Guest</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="permit_type_key">Select Permit Duration:</label>
+                    <select id="permit_type_key" name="permit_type_key" required disabled>
+                        <option value="">-- First Select a Category --</option>
                         {% for permit_type in permit_types %}
-                        <option value="{{ permit_type[0] }}">
-                            {{ permit_type[1] }} - {{ permit_type[2] }}
+                        <option value="{{ permit_type[0] }}" data-category="{{ permit_type[1] }}" style="display:none;" disabled>
+                            {{ permit_type[2] }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
 
+                <div class="permit-info-details">
+                    <h4>Permit Expiration Dates:</h4>
+                    <table class="permit-types-table">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Available Durations</th>
+                                <th>Expiration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Faculty</strong></td>
+                                <td>Yearly, Semester</td>
+                                <td>May 19, 2026 / Dec 23, 2025</td>
+                            </tr>
+                            <tr>
+                                <td><strong>On-Campus Student</strong></td>
+                                <td>Yearly, Semester</td>
+                                <td>May 19, 2026 / Dec 23, 2025</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Off-Campus Student</strong></td>
+                                <td>Semester, Daily</td>
+                                <td>Dec 23, 2025 / Next day</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Guest</strong></td>
+                                <td>Daily, Hourly</td>
+                                <td>Next day / Same day</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
                 <div class="form-actions">
                     <button type="submit" class="primary-btn">Submit Application</button>
-                    <button type="button" class="secondary-btn" 
-                            onclick="window.location.href='{{ url_for('view_permit') }}'">
-                        Cancel
-                    </button>
+                    <button type="button" class="secondary-btn" onclick="window.location.href='{{ url_for('view_permit') }}'">Cancel</button>
                 </div>
             </form>
         </main>
