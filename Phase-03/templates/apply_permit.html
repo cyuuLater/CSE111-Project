@@ -72,7 +72,7 @@
                 <div class="form-group">
                     <label for="permit_category">Permit Category: </label>
                     <select id="permit_category" name="permit_category" required onchange="updateDurationOptions()">
-                        <option value="">-- Choose Your Category --</option>
+                        <option value="">-- Choose Category --</option>
                         <option value="Faculty">Faculty</option>
                         <option value="On-Campus Student">On-Campus Student</option>
                         <option value="Off-Campus Student">Off-Campus Student</option>
@@ -83,7 +83,7 @@
                 <div class="form-group">
                     <label for="permit_type_key">Permit Duration:</label>
                     <select id="permit_type_key" name="permit_type_key" required disabled>
-                        <option value="">-- Select Category --</option>
+                        <option value="">-- Select Duration --</option>
                         {% for permit_type in permit_types %}
                         <option value="{{ permit_type[0] }}" data-category="{{ permit_type[1] }}" style="display:none;" disabled>
                             {{ permit_type[2] }}

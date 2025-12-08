@@ -144,21 +144,58 @@ def map_page():
 # ----------------------------------------------------------------------------------------------------------------------
 
 # -- Redirect user to page to display their registered vehicles --
-@app.route('/view_vehicles')
+@app.route('/view_vehicles', methods=['GET', 'POST'])
 @login_required
 def view_vehicles():
-    # Query database and show list of vehicles
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
+    
+    error = None
+    success = None
+    
+    # Handle POST: Delete vehicle
+    if request.method == 'POST':
+        vehicle_key = request.form.get('vehicle_key')
+        
+        if vehicle_key:
+            # Security: Verify vehicle belongs to current user
+            cursor.execute("""
+                SELECT COUNT(*) FROM vehicles 
+                WHERE v_vehicleskey = ? AND v_userkey = ?
+            """
+            , [vehicle_key, current_user.u_userkey])
+            
+            if cursor.fetchone()[0] == 0:
+                error = "Invalid vehicle selection."
+            else:
+                # Check if vehicle is connected to an active permit
+                cursor.execute("""
+                    SELECT COUNT(*) FROM permit 
+                    WHERE p_vehicleskey = ? AND p_expirationdate >= DATE('now')
+                """
+                , [vehicle_key])
+                
+                if cursor.fetchone()[0] > 0:
+                    error = "Cannot delete this vehicle. It is connected to an active permit."
+                else:
+                    # Safe to delete
+                    cursor.execute("""
+                        DELETE FROM vehicles 
+                        WHERE v_vehicleskey = ? AND v_userkey = ?
+                    """
+                    , [vehicle_key, current_user.u_userkey])
+                    conn.commit()
+    
+    # GET or after POST: Display vehicles
     cursor.execute("""
         SELECT v_vehicleskey, v_plateno, v_platestate, v_maker, v_model, v_color
         FROM vehicles WHERE v_userkey = ?
-    """
-    , [current_user.u_userkey])
+        ORDER BY v_vehicleskey DESC
+    """, [current_user.u_userkey])
     vehicles = cursor.fetchall()
     conn.close()
     
-    return render_template("view_vehicles.html", vehicles=vehicles, username=current_user.username)
+    return render_template("view_vehicles.html", vehicles=vehicles, error=error, success=success, username=current_user.username)
 
 
 # -- Redirect user to the page to register a vehicle --
