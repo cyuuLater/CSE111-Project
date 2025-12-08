@@ -375,16 +375,14 @@ def apply_permit():
     # Insert permit with correct expiration date
     if permit_duration in ['Yearly', 'Semester']:
         sql = """
-            INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, 
-                              p_permitnum, p_issuedate, p_expirationdate)
+            INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, p_permitnum, p_issuedate, p_expirationdate)
             VALUES(?, ?, ?, ?, ?, DATE('now', '-08:00'), ?)
         """
         cursor.execute(sql, [new_permit_key, current_user.u_userkey, vehicle_key, 
                             permit_type_key, permit_num, expiration_date])
     else:
         sql = f"""
-            INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, 
-                              p_permitnum, p_issuedate, p_expirationdate)
+            INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, p_permitnum, p_issuedate, p_expirationdate)
             VALUES(?, ?, ?, ?, ?, DATE('now', '-08:00'), {expiration_date})
         """
         cursor.execute(sql, [new_permit_key, current_user.u_userkey, vehicle_key, 
@@ -394,6 +392,21 @@ def apply_permit():
     conn.close()
     
     return redirect(url_for('view_permit'))
+
+
+# -- Redirect user to the page to apply for a permit --
+def delete_expired_permits():
+    conn = sqlite3.connect('instance/data.sqlite')
+    cursor = conn.cursor()
+
+    # Delete expired permits
+    cursor.execute("""
+        DELETE FROM permit 
+        WHERE p_expirationdate < DATE('now', '-08:00')
+    """)
+
+    conn.commit()
+    conn.close()
 
 
 
@@ -408,6 +421,9 @@ if __name__ == '__main__':
         if (resetTheTable):
             db.drop_all()
         db.create_all()
+
+    # -- Delete any expired permits on run --
+    delete_expired_permits()
 
     print("running locally")
     app.run(port=5001, debug=True)
