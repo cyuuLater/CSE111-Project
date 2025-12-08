@@ -149,9 +149,7 @@ def map_page():
 def view_vehicles():
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
-    
     error = None
-    success = None
     
     # Handle POST: Delete vehicle
     if request.method == 'POST':
@@ -195,7 +193,7 @@ def view_vehicles():
     vehicles = cursor.fetchall()
     conn.close()
     
-    return render_template("view_vehicles.html", vehicles=vehicles, error=error, success=success, username=current_user.username)
+    return render_template("view_vehicles.html", vehicles=vehicles, error=error, username=current_user.username)
 
 
 # -- Redirect user to the page to register a vehicle --
