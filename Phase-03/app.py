@@ -641,13 +641,22 @@ def view_permit():
             if cursor.fetchone()[0] == 0:
                 error = "Invalid permit selection."
             else:
-                # Safe to delete
+                # Check if vehicle is currently parked
                 cursor.execute("""
-                    DELETE FROM permit
-                    WHERE p_permitkey = ? AND p_userkey = ?
-                """
-                , [permit_key, current_user.u_userkey])
-                conn.commit()
+                    SELECT COUNT(*) FROM parkingHistory ph
+                    JOIN permit p ON ph.ph_vehicleskey = p.p_vehicleskey
+                    WHERE p.p_permitkey = ? AND ph.ph_departuretime IS NULL
+                """, [permit_key])
+
+                if cursor.fetchone()[0] > 0:
+                    error = "Cannot delete this permit. The associated vehicle is currently parked."
+                else:
+                    # Safe to delete
+                    cursor.execute("""
+                        DELETE FROM permit
+                        WHERE p_permitkey = ? AND p_userkey = ?
+                    """, [permit_key, current_user.u_userkey])
+                    conn.commit()
     
     # Get user's permits
     cursor.execute("""
