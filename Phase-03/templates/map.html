@@ -3,6 +3,331 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Map</title>
+    <title>Parking Map</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .current-parking {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .current-parking h3 {
+            color: #155724;
+            margin-bottom: 10px;
+        }
+        
+        .map-controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .map-controls button {
+            margin: 0 10px;
+            padding: 10px 20px;
+        }
+        
+        .legend {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .legend h4 {
+            margin-top: 0;
+            color: #003262;
+        }
+        
+        .legend-item {
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #333;
+        }
+        
+        .spot-popup {
+            font-family: Arial, sans-serif;
+        }
+        
+        .spot-popup h4 {
+            margin: 0 0 10px 0;
+            color: #003262;
+        }
+        
+        .spot-popup p {
+            margin: 5px 0;
+        }
+        
+        .claim-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .claim-btn:hover {
+            background-color: #218838;
+        }
+        
+        .unclaim-btn {
+            background-color: #dc3545;
+        }
+        
+        .unclaim-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
 </head>
+
+<body>
+    <div class="container">
+        <header>
+            <a href="{{ url_for('home') }}" class="back-link">← Back</a>
+            <h1>UC Merced Parking Map</h1>
+        </header>
+
+        <main>
+            <!-- Current Parking Status -->
+            <div id="parking-status"></div>
+
+            <!-- Map Container -->
+            <div id="map"></div>
+
+            <!-- Legend -->
+            <div class="legend">
+                <h4>Legend</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #28a745;"></div>
+                    <span>Green Zone - All Users</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffc107;"></div>
+                    <span>Gold Zone - Faculty Only</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #17a2b8;"></div>
+                    <span>H Zone - On-Campus Students Only</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #dc3545;"></div>
+                    <span>Occupied Spot</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #6c757d;"></div>
+                    <span>Inactive Spot</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let currentParkingStatus = {};
+        let allMarkers = [];
+        const map = L.map('map').setView([37.3653, -120.4250], 16);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Load parking status
+        fetch('/my-parking-status')
+            .then(response => response.json())
+            .then(status => {
+                currentParkingStatus = status;
+                displayParkingStatus(status);
+            });
+
+        // Fetch parking data
+        fetch('/api/parking-data')
+            .then(response => response.json())
+            .then(data => {
+                displayParkingSpots(data);
+            });
+
+        function displayParkingStatus(status) {
+            const statusDiv = document.getElementById('parking-status');
+            
+            if (!status.has_permit) {
+                statusDiv.innerHTML = `
+                    <div class="error-message">
+                        <p>⚠️ You need an active permit to claim parking spots.</p>
+                    </div>
+                `;
+            } else if (status.is_parked) {
+                statusDiv.innerHTML = `
+                    <div class="current-parking">
+                        <h3>🚗 Currently Parked</h3>
+                        <p><strong>Spot:</strong> ${status.spot}</p>
+                        <p><strong>Lot:</strong> ${status.lot}</p>
+                        <p><strong>Zone:</strong> ${status.zone}</p>
+                        <p><strong>Arrival:</strong> ${new Date(status.arrival_time).toLocaleString()}</p>
+                        <button onclick="unclaimSpot()" class="primary-btn unclaim-btn">Leave Spot</button>
+                    </div>
+                `;
+            } else {
+                statusDiv.innerHTML = `
+                    <div class="info-box">
+                        <p>✓ You have an active permit. Click on an available spot to claim it!</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayParkingSpots(spots) {
+            spots.forEach(spot => {
+                let color;
+                if (!spot.is_active) {
+                    color = '#6c757d';
+                } else if (spot.is_occupied) {
+                    color = '#dc3545';
+                } else if (spot.zone_type === 'Green') {
+                    color = '#28a745';
+                } else if (spot.zone_type === 'Gold') {
+                    color = '#ffc107';
+                } else if (spot.zone_type === 'H') {
+                    color = '#17a2b8';
+                } else {
+                    color = '#6c757d';
+                }
+
+                const marker = L.circleMarker([spot.latitude, spot.longitude], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#000',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+
+                let popupContent = `
+                    <div class="spot-popup">
+                        <h4>Spot ${spot.spot_num}</h4>
+                        <p><strong>Lot:</strong> ${spot.lot_name}</p>
+                        <p><strong>Zone:</strong> ${spot.zone_type}</p>
+                        <p><strong>Status:</strong> ${spot.is_occupied ? 'Occupied' : 'Available'}</p>
+                        ${!spot.is_active ? '<p style="color: red;"><strong>Inactive</strong></p>' : ''}
+                `;
+
+                // Add claim button if spot is available and user not parked
+                if (!spot.is_occupied && spot.is_active && currentParkingStatus.has_permit && !currentParkingStatus.is_parked) {
+                    popupContent += `
+                        <button onclick="claimSpot('${spot.spot_num}')" class="claim-btn">
+                            Claim This Spot
+                        </button>
+                    `;
+                }
+
+                popupContent += `</div>`;
+
+                marker.bindPopup(popupContent);
+                marker.addTo(map);
+
+                allMarkers.push({ marker: marker, spot: spot });
+            });
+
+            addLotLabels(spots);
+        }
+
+        function addLotLabels(spots) {
+            const lots = {};
+            spots.forEach(spot => {
+                if (!lots[spot.lot_name]) {
+                    lots[spot.lot_name] = { lats: [], lons: [], name: spot.lot_name };
+                }
+                lots[spot.lot_name].lats.push(spot.latitude);
+                lots[spot.lot_name].lons.push(spot.longitude);
+            });
+
+            Object.values(lots).forEach(lot => {
+                const centerLat = lot.lats.reduce((a, b) => a + b) / lot.lats.length;
+                const centerLon = lot.lons.reduce((a, b) => a + b) / lot.lons.length;
+
+                L.marker([centerLat, centerLon], {
+                    icon: L.divIcon({
+                        className: 'lot-label',
+                        html: `<div style="background: white; padding: 5px 10px; border: 2px solid #003262; border-radius: 5px; font-weight: bold; color: #003262;">${lot.name}</div>`,
+                        iconSize: [100, 30]
+                    })
+                }).addTo(map);
+            });
+        }
+
+        function claimSpot(spotNum) {
+            fetch(`/claim-spot/${spotNum}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`✓ ${data.message}`);
+                    location.reload(); // Refresh to update map
+                } else {
+                    alert(`⚠️ ${data.message}`);
+                }
+            })
+            .catch(error => {
+                alert('Error claiming spot. Please try again.');
+                console.error(error);
+            });
+        }
+
+        function unclaimSpot() {
+            if (!confirm('Are you sure you want to leave this parking spot?')) {
+                return;
+            }
+
+            fetch('/unclaim-spot', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`✓ ${data.message}`);
+                    location.reload(); // Refresh to update map
+                } else {
+                    alert(`⚠️ ${data.message}`);
+                }
+            })
+            .catch(error => {
+                alert('Error unclaiming spot. Please try again.');
+                console.error(error);
+            });
+        }
+    </script>
+</body>
+</html>
