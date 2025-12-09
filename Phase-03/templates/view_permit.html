@@ -25,16 +25,26 @@
                             <th>Permit Number</th>
                             <th>Issue Date</th>
                             <th>Expiration Date</th>
+                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for permit in permits %}
                         <tr>
-                            <td>{{ permit[0] }} - {{ permit[1] }} {{ permit[2] }}</td>
-                            <td>{{ permit[4] }} ({{ permit[5] }})</td>
-                            <td>{{ permit[6] }}</td>
+                            <td>{{ permit[1] }} - {{ permit[2] }} {{ permit[3] }}</td>
+                            <td>{{ permit[5] }} ({{ permit[6] }})</td>
                             <td>{{ permit[7] }}</td>
                             <td>{{ permit[8] }}</td>
+                            <td>{{ permit[9] }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('view_permit') }}" style="display:inline;">
+                                    <input type="hidden" name="permit_key" value="{{ permit[0] }}">
+                                    <button type="submit" class="delete-btn" 
+                                            onclick="return confirm('Are you sure you want to delete this permit?')">
+                                        X
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

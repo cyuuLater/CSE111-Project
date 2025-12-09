@@ -254,15 +254,39 @@ def reg_vehicle():
 # ----------------------------------------------------------------------------------------------------------------------
 
 # -- Redirect user to page that displays their permit information --
-@app.route('/view_permit')
+@app.route('/view_permit', methods=['GET', 'POST'])
 @login_required
 def view_permit():
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
+    error = None
+    
+    # Handle POST: Delete permit
+    if request.method == 'POST':
+        permit_key = request.form.get('permit_key')
+        
+        if permit_key:
+            # Security: Verify permit belongs to current user
+            cursor.execute("""
+                SELECT COUNT(*) FROM permit 
+                WHERE p_permitkey = ? AND p_userkey = ?
+            """
+            , [permit_key, current_user.u_userkey])
+            
+            if cursor.fetchone()[0] == 0:
+                error = "Invalid permit selection."
+            else:
+                # Safe to delete
+                cursor.execute("""
+                    DELETE FROM permit
+                    WHERE p_permitkey = ? AND p_userkey = ?
+                """
+                , [permit_key, current_user.u_userkey])
+                conn.commit()
     
     # Get user's permits
     cursor.execute("""
-        SELECT v.v_plateno, v.v_maker, v.v_model, v.v_color,
+        SELECT p.p_permitkey, v.v_plateno, v.v_maker, v.v_model, v.v_color,
                pt.pt_category, pt.pt_duration, p.p_permitnum, 
                p.p_issuedate, p.p_expirationdate
         FROM permit p
@@ -276,7 +300,7 @@ def view_permit():
     
     has_permit = len(permits) > 0
     
-    return render_template('view_permit.html', permits=permits, has_permit=has_permit, username=current_user.username)
+    return render_template('view_permit.html', permits=permits, has_permit=has_permit, error=error, username=current_user.username)
 
 
 # -- Redirect user to the page to apply for a permit --
@@ -429,7 +453,7 @@ def apply_permit():
     return redirect(url_for('view_permit'))
 
 
-# -- Redirect user to the page to apply for a permit --
+# -- Delete any expired permits on run --
 def delete_expired_permits():
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
