@@ -171,15 +171,18 @@ def parking_data():
 
 
 # -- User claims a spot --
+# In app.py
+# CHANGE THIS LINE: Add the spot_num variable to the route
 @app.route('/claim-spot/<spot_num>', methods=['POST'])
 @login_required
-def claim_spot(spot_num):
+def claim_spot(spot_num): # <-- spot_num is passed here
+    
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
-    
-    # Check if user has an active permit
+
+    # --- 1. Get Active Permit Details and Vehicle Key ---
     cursor.execute("""
-        SELECT p.p_permitkey, p.p_vehicleskey, pt.pt_category
+        SELECT p.p_permitkey, p.p_vehicleskey, pt.pt_category, p.p_expirationdate 
         FROM permit p
         JOIN permitType pt ON p.p_permittypekey = pt.pt_permittypekey
         WHERE p.p_userkey = ? AND p.p_expirationdate >= DATETIME('now', '-08:00')
@@ -190,9 +193,9 @@ def claim_spot(spot_num):
         conn.close()
         return jsonify({'success': False, 'message': 'You do not have an active permit.'}), 403
     
-    permit_key, vehicle_key, permit_category = permit_result
-    
-    # Check if user is already parked somewhere
+    permit_key, vehicle_key, permit_category, permit_expiry = permit_result
+
+    # --- 2. Check if user is already parked somewhere (using the vehicle key) ---
     cursor.execute("""
         SELECT ph_spotskey, s.s_num
         FROM parkingHistory ph
@@ -200,17 +203,13 @@ def claim_spot(spot_num):
         WHERE ph_vehicleskey = ? AND ph_departuretime IS NULL
     """, [vehicle_key])
     
-    already_parked = cursor.fetchone()
-    if already_parked:
+    if cursor.fetchone():
         conn.close()
-        return jsonify({
-            'success': False, 
-            'message': f'You are already parked in spot {already_parked[1]}. Please unclaim that spot first.'
-        }), 400
-    
-    # Get spot details
+        return jsonify({'success': False, 'message': 'You are already parked elsewhere.'}), 400
+
+    # --- 3. Get Spot Details and check availability/activation status ---
     cursor.execute("""
-        SELECT s.s_spotskey, s.s_status, s.s_isactive, s.s_zonekey, z.z_type, l.l_name
+        SELECT s.s_spotskey, s.s_status, s.s_isactive, s.s_zonekey, s.s_lotkey, z.z_type, l.l_name
         FROM spots s
         JOIN zone z ON s.s_zonekey = z.z_zonekey
         JOIN lot l ON s.s_lotkey = l.l_lotkey
@@ -222,38 +221,52 @@ def claim_spot(spot_num):
         conn.close()
         return jsonify({'success': False, 'message': 'Spot not found.'}), 404
     
-    spot_key, is_occupied, is_active, zone_key, zone_type, lot_name = spot_result
+    spot_key, is_occupied, is_active, spot_zone_key, lot_key, spot_zone_type, lot_name = spot_result
     
-    # Check if spot is available
-    if is_occupied:
+    # Basic Spot Checks
+    if is_occupied == 1:
         conn.close()
         return jsonify({'success': False, 'message': 'This spot is already occupied.'}), 400
-    
-    if not is_active:
+    if is_active == 0:
         conn.close()
         return jsonify({'success': False, 'message': 'This spot is currently inactive.'}), 400
-    
-    # Check if user's permit allows parking in this zone
+
+    # --- 4. Validate against the zoneAssignment M:N table (Is the assignment active?) ---
+    cursor.execute("""
+        SELECT za_isactive
+        FROM zoneAssignment
+        WHERE za_lotkey = ? AND za_zonekey = ?
+    """, [lot_key, spot_zone_key])
+
+    assignment_active = cursor.fetchone()
+    if not assignment_active or assignment_active[0] == 0:
+        conn.close()
+        return jsonify({
+            'success': False,
+            'message': f'Parking in the {spot_zone_type} Zone of Lot {lot_name} is currently suspended.'
+        }), 403
+
+    # --- 5. Validate against Permit Category (Does the permit allow this zone?) ---
     can_park = False
-    if zone_type == 'Green':
-        can_park = True  # All users can park in Green
-    elif zone_type == 'Gold' and permit_category == 'Faculty':
+    if spot_zone_type == 'Green':
         can_park = True
-    elif zone_type == 'H' and permit_category == 'On-Campus Student':
+    elif spot_zone_type == 'Gold' and permit_category == 'Faculty':
+        can_park = True
+    elif spot_zone_type == 'H' and permit_category == 'On-Campus Student':
         can_park = True
     
     if not can_park:
         conn.close()
         return jsonify({
             'success': False, 
-            'message': f'Your {permit_category} permit does not allow parking in {zone_type} Zone.'
+            'message': f'Your {permit_category} permit does not allow parking in {spot_zone_type} Zone.'
         }), 403
     
-    # Claim the spot!
-    # Insert into parkingHistory
+    # --- 6. Claim the Spot (Insert parkingHistory and Update Spot status) ---
+    
+    # Insert into parkingHistory (Find next key)
     cursor.execute("SELECT MAX(ph_parkinghistkey) FROM parkingHistory")
-    max_key = cursor.fetchone()[0]
-    new_history_key = (max_key or 0) + 1
+    new_history_key = (cursor.fetchone()[0] or 0) + 1
     
     cursor.execute("""
         INSERT INTO parkingHistory(ph_parkinghistkey, ph_vehicleskey, ph_spotskey, 
@@ -261,7 +274,7 @@ def claim_spot(spot_num):
         VALUES(?, ?, ?, DATETIME('now', '-08:00'), NULL)
     """, [new_history_key, vehicle_key, spot_key])
     
-    # Update spot status to occupied
+    # Update spot status to occupied (1)
     cursor.execute("""
         UPDATE spots
         SET s_status = 1
@@ -270,14 +283,14 @@ def claim_spot(spot_num):
     
     conn.commit()
     conn.close()
-    
+
     return jsonify({
         'success': True, 
         'message': f'Successfully claimed spot {spot_num} in {lot_name}!',
         'spot': spot_num,
         'lot': lot_name,
-        'zone': zone_type
-    })
+        'zone': spot_zone_type
+    }), 200
 
 
 # -- User unclaims a spot -- 
@@ -397,44 +410,66 @@ def update_time_based_zones():
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
     
-    # Get current hour (Pacific Time: UTC-8)
+    # Get current hour (Pacific Time)
     cursor.execute("SELECT CAST(strftime('%H', 'now', '-08:00') AS INTEGER)")
     current_hour = cursor.fetchone()[0]
-    
-    # Determine if it's nighttime (7 PM to 6 AM)
-    is_nighttime = current_hour >= 19 or current_hour < 6
-    
+
+    # Nighttime = 7 PM (19) to 6 AM (05)
+    is_nighttime = (current_hour >= 19 or current_hour < 6)
+
+    # Get zone keys
+    cursor.execute("SELECT z_zonekey FROM zone WHERE z_type = 'Gold'")
+    gold_zone = cursor.fetchone()[0]
+
+    cursor.execute("SELECT z_zonekey FROM zone WHERE z_type = 'Green'")
+    green_zone = cursor.fetchone()[0]
+
+    # Lot key for North Bowl
+    cursor.execute("SELECT l_lotkey FROM lot WHERE l_name = 'North Bowl'")
+    north_bowl = cursor.fetchone()[0]
+
     if is_nighttime:
-        # Nighttime: North Bowl becomes Green Zone (all users)
+        print("Nighttime rules: North Bowl → Green only")
+
+        # 1. UPDATE SPOTS: Change the spot's zone key to Green (s_zonekey = green_zone)
         cursor.execute("""
             UPDATE spots
-            SET s_zonekey = 1
-            WHERE s_num LIKE 'E%'
-        """)
-        
+            SET s_zonekey = ?, s_isactive = 1 
+            WHERE s_lotkey = ? 
+        """, (green_zone, north_bowl))
+
+        # 2. UPDATE ZONE ASSIGNMENT: Activate Green, Deactivate Gold
         cursor.execute("""
-            UPDATE zoneAssignment
-            SET za_zonekey = 1
-            WHERE za_lotkey = 3 AND za_zonekey = 2
-        """)
-        
-        print(f"✓ North Bowl set to Green Zone (nighttime)")
+            UPDATE zoneAssignment SET za_isactive = 1
+            WHERE za_lotkey = ? AND za_zonekey = ?
+        """, (north_bowl, green_zone))
+
+        cursor.execute("""
+            UPDATE zoneAssignment SET za_isactive = 0
+            WHERE za_lotkey = ? AND za_zonekey = ?
+        """, (north_bowl, gold_zone))
+
     else:
-        # Daytime: North Bowl becomes Gold Zone (faculty only)
+        print("Daytime rules: North Bowl → Gold only")
+        
+        # 1. UPDATE SPOTS: Change the spot's zone key to Gold (s_zonekey = gold_zone)
         cursor.execute("""
             UPDATE spots
-            SET s_zonekey = 2
-            WHERE s_num LIKE 'E%'
-        """)
-        
+            SET s_zonekey = ?, s_isactive = 1 
+            WHERE s_lotkey = ? 
+        """, (gold_zone, north_bowl))
+
+        # 2. UPDATE ZONE ASSIGNMENT: Activate Gold, Deactivate Green
         cursor.execute("""
-            UPDATE zoneAssignment
-            SET za_zonekey = 2
-            WHERE za_lotkey = 3 AND za_zonekey = 1
-        """)
-        
-        print(f"✓ North Bowl set to Gold Zone (daytime)")
-    
+            UPDATE zoneAssignment SET za_isactive = 1
+            WHERE za_lotkey = ? AND za_zonekey = ?
+        """, (north_bowl, gold_zone))
+
+        cursor.execute("""
+            UPDATE zoneAssignment SET za_isactive = 0
+            WHERE za_lotkey = ? AND za_zonekey = ?
+        """, (north_bowl, green_zone))
+
     conn.commit()
     conn.close()
 
