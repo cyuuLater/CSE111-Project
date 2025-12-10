@@ -30,14 +30,71 @@
             margin-bottom: 10px;
         }
         
-        .map-controls {
-            margin: 20px 0;
-            text-align: center;
+        .zone-status-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
-        .map-controls button {
-            margin: 0 10px;
-            padding: 10px 20px;
+        .zone-status-panel h3 {
+            margin-top: 0;
+            color: #003262;
+            border-bottom: 2px solid #003262;
+            padding-bottom: 10px;
+        }
+        
+        .lot-zone-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .lot-card {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .lot-card h4 {
+            margin: 0 0 10px 0;
+            color: #003262;
+        }
+        
+        .zone-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            margin: 5px 5px 5px 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .zone-badge.active {
+            opacity: 1;
+        }
+        
+        .zone-badge.inactive {
+            opacity: 0.4;
+            text-decoration: line-through;
+        }
+        
+        .zone-badge.green {
+            background: #28a745;
+            color: white;
+        }
+        
+        .zone-badge.gold {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .zone-badge.h-zone {
+            background: #17a2b8;
+            color: white;
         }
         
         .legend {
@@ -101,6 +158,15 @@
         .unclaim-btn:hover {
             background-color: #c82333;
         }
+
+        .time-notice {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
     </style>
 </head>
 
@@ -114,6 +180,14 @@
         <main>
             <!-- Current Parking Status -->
             <div id="parking-status"></div>
+
+            <!-- Zone Status Panel -->
+            <div class="zone-status-panel">
+                <h3>Current Zone Availability by Lot</h3>
+                <div id="zone-status-info" class="lot-zone-info">
+                    <p>Loading zone information...</p>
+                </div>
+            </div>
 
             <!-- Map Container -->
             <div id="map"></div>
@@ -158,6 +232,28 @@
             maxZoom: 19
         }).addTo(map);
 
+        // Load zone status information
+        fetch('/api/zone-status')
+            .then(response => response.json())
+            .then(data => {
+                displayZoneStatus(data);
+            })
+            .catch(error => {
+                console.error('Error loading zone status:', error);
+            });
+
+        // Load user's accessible zones
+        fetch('/api/my-accessible-zones')
+            .then(response => response.json())
+            .then(data => {
+                if (data.has_permit) {
+                    displayAccessibleZones(data);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading accessible zones:', error);
+            });
+
         // Load parking status
         fetch('/my-parking-status')
             .then(response => response.json())
@@ -173,6 +269,76 @@
                 displayParkingSpots(data);
             });
 
+        function displayZoneStatus(data) {
+            const zoneStatusDiv = document.getElementById('zone-status-info');
+            
+            if (!data.lots || data.lots.length === 0) {
+                zoneStatusDiv.innerHTML = '<p>No zone information available.</p>';
+                return;
+            }
+
+            let html = '';
+            data.lots.forEach(lot => {
+                html += `
+                    <div class="lot-card">
+                        <h4>${lot.lot_name}</h4>
+                        <div>
+                `;
+                
+                lot.zones.forEach(zone => {
+                    const zoneClass = zone.zone_type === 'Green' ? 'green' : 
+                                     zone.zone_type === 'Gold' ? 'gold' : 'h-zone';
+                    const activeClass = zone.is_active ? 'active' : 'inactive';
+                    const statusText = zone.is_active ? '✓' : '✗';
+                    
+                    html += `
+                        <span class="zone-badge ${zoneClass} ${activeClass}">
+                            ${statusText} ${zone.zone_type} Zone
+                        </span>
+                    `;
+                });
+
+                // Add time-based notice for North Bowl
+                if (lot.lot_name === 'North Bowl') {
+                    const currentHour = new Date().getHours();
+                    const isNighttime = currentHour >= 19 || currentHour < 6;
+                    
+                    html += `
+                        <div class="time-notice">
+                            <strong>Time-Based Access</strong><br>
+                            ${isNighttime ? 
+                                'Nighttime (7 PM - 6 AM): Green Zone active for all users' : 
+                                'Daytime (6 AM - 7 PM): Gold Zone active for faculty only'}
+                        </div>
+                    `;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            zoneStatusDiv.innerHTML = html;
+        }
+
+        function displayAccessibleZones(data) {
+            // Add to your zone status panel
+            let html = `
+                <div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                    <strong>Your ${data.permit_category} Permit allows access to:</strong><br>
+                    ${data.accessible_zones.map(z => {
+                        const zoneClass = z === 'Green' ? 'green' : 
+                                         z === 'Gold' ? 'gold' : 'h-zone';
+                        return `<span class="zone-badge ${zoneClass} active">${z} Zone</span>`;
+                    }).join('')}
+                </div>
+            `;
+            
+            // Prepend to zone status panel
+            document.getElementById('zone-status-info').insertAdjacentHTML('beforebegin', html);
+        }
+
         function displayParkingStatus(status) {
             const statusDiv = document.getElementById('parking-status');
             
@@ -185,7 +351,7 @@
             } else if (status.is_parked) {
                 statusDiv.innerHTML = `
                     <div class="current-parking">
-                        <h3>🚗 Currently Parked</h3>
+                        <h3>Currently Parked</h3>
                         <p><strong>Spot:</strong> ${status.spot}</p>
                         <p><strong>Lot:</strong> ${status.lot}</p>
                         <p><strong>Zone:</strong> ${status.zone}</p>

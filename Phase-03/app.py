@@ -11,8 +11,8 @@ app.config['SECRET_KEY'] = 'super secret key'
 db = SQLAlchemy(app)
 
 login_manager = LoginManager(app) 
-login_manager.login_view = 'login' # Correct endpoint name (matches function name)
-bcrypt = Bcrypt(app) # Needed for hashing passwords
+login_manager.login_view = 'login'
+bcrypt = Bcrypt(app)
 
 
 
@@ -43,7 +43,7 @@ def load_user(user_id):
 # --- LOGIN AND SIGN UP  ---
 # ----------------------------------------------------------------------------------------------------------------------
 
-# -- Sign up  --
+# -- Sign up --
 @app.route('/signup', methods=['GET'])
 def signup():
     return render_template("signup.html") 
@@ -56,22 +56,20 @@ def signup_process():
     password = request.form.get('password')
     confirm_password = request.form.get('confirm_password')
 
-    # Basic validation checks
+    # Validation checks
     if not all([username_input, email_input, password, confirm_password]):
-        error = "All fields are required."
-        return render_template('signup.html', error=error)
+        return render_template('signup.html', error="All fields are required.")
+    
     if password != confirm_password:
-        error = "Passwords do not match."
-        return render_template('signup.html', error=error)
+        return render_template('signup.html', error="Passwords do not match.")
     
     if User.query.filter_by(username=username_input).first():
-        error = "Username already exists. Please choose another."
-        return render_template('signup.html', error=error)
+        return render_template('signup.html', error="Username already exists.")
     
     if User.query.filter_by(email=email_input).first():
-        error = "Email already exists. Please choose another."
-        return render_template('signup.html', error=error)
+        return render_template('signup.html', error="Email already exists.")
     
+    # Create user
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
     new_user = User(username=username_input, email=email_input, password=hashed_password)
     db.session.add(new_user)
@@ -79,32 +77,29 @@ def signup_process():
     return redirect(url_for('login')) 
 
 
-# -- Initialize default routes --
+# -- Default the app to start in login --
 @app.route('/')
 def index():
     return redirect(url_for('login'))
 
 
-# -- Login and Logout --
+# -- Log in --
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
-        # Always show the login page
         return render_template("login.html")
 
-    # POST method: process login
+    # Process login
     login_id = request.form.get('login_id') 
     password = request.form.get('password')
 
-    # Try to find user by username or email
     user = User.query.filter((User.username == login_id) | (User.email == login_id)).first()
 
     if user and bcrypt.check_password_hash(user.password, password):
         login_user(user, remember=False)
         return redirect(url_for('home', username=current_user.username))
     else:
-        error = 'Invalid login ID or password'
-        return render_template('login.html', error=error)
+        return render_template('login.html', error='Invalid login ID or password')
 
 
 @app.route('/logout')
@@ -116,10 +111,10 @@ def logout():
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# --- HOME PAGE ROUTE  ---
+# --- HOME PAGE  ---
 # ----------------------------------------------------------------------------------------------------------------------
 
-# -- Home page route --
+# -- The home page --
 @app.route('/home')
 @login_required
 def home():
@@ -128,17 +123,17 @@ def home():
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# --- MAP PAGE  ---
+# --- MAP PAGE & API ENDPOINTS  ---
 # ----------------------------------------------------------------------------------------------------------------------
 
-# -- Redirect user to map page --
+# -- Route in the map page
 @app.route('/map')
 @login_required
 def map_page():
     return render_template("map.html", username=current_user.username)
 
 
-# -- Get the parking data --
+# -- The data for the Leaflet api --
 @app.route('/api/parking-data')
 @login_required
 def parking_data():
@@ -159,7 +154,7 @@ def parking_data():
             'spot_num': row[0],
             'latitude': row[1],
             'longitude': row[2],
-            'is_occupied': bool(row[3]),  # s_status: 0=available, 1=occupied
+            'is_occupied': bool(row[3]),
             'is_active': bool(row[4]),
             'zone_type': row[5],
             'lot_name': row[6]
@@ -169,17 +164,16 @@ def parking_data():
     return jsonify(spots)
 
 
-# -- User claims a spot --
+# -- Claim spots depending on permit types --
 @app.route('/claim-spot/<spot_num>', methods=['POST'])
 @login_required
 def claim_spot(spot_num):
-    
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
 
-    # 1. Get Active Permit Details and Vehicle Key
+    # Get active permit
     cursor.execute("""
-        SELECT p.p_permitkey, p.p_vehicleskey, pt.pt_category, p.p_expirationdate 
+        SELECT p.p_permitkey, p.p_vehicleskey, pt.pt_category
         FROM permit p
         JOIN permitType pt ON p.p_permittypekey = pt.pt_permittypekey
         WHERE p.p_userkey = ? AND p.p_expirationdate >= DATETIME('now', '-08:00')
@@ -190,21 +184,19 @@ def claim_spot(spot_num):
         conn.close()
         return jsonify({'success': False, 'message': 'You do not have an active permit.'}), 403
     
-    permit_key, vehicle_key, permit_category, permit_expiry = permit_result
+    permit_key, vehicle_key, permit_category = permit_result
 
-    # 2. Check if user is already parked somewhere (using the vehicle key)
+    # Check if already parked (defensive - UI should prevent this)
     cursor.execute("""
-        SELECT ph_spotskey, s.s_num
-        FROM parkingHistory ph
-        JOIN spots s ON ph.ph_spotskey = s.s_spotskey
-        WHERE ph_vehicleskey = ? AND ph_departuretime IS NULL
+        SELECT COUNT(*) FROM parkingHistory ph
+        WHERE ph.ph_vehicleskey = ? AND ph.ph_departuretime IS NULL
     """, [vehicle_key])
     
-    if cursor.fetchone():
+    if cursor.fetchone()[0] > 0:
         conn.close()
         return jsonify({'success': False, 'message': 'You are already parked elsewhere.'}), 400
 
-    # 3. Get Spot Details and check availability/activation status
+    # Get spot details
     cursor.execute("""
         SELECT s.s_spotskey, s.s_status, s.s_isactive, s.s_zonekey, s.s_lotkey, z.z_type, l.l_name
         FROM spots s
@@ -220,37 +212,35 @@ def claim_spot(spot_num):
     
     spot_key, is_occupied, is_active, spot_zone_key, lot_key, spot_zone_type, lot_name = spot_result
     
-    # Basic Spot Checks
-    if is_occupied == 1:
+    # Check spot availability
+    if is_occupied:
         conn.close()
         return jsonify({'success': False, 'message': 'This spot is already occupied.'}), 400
-    if is_active == 0:
+    
+    if not is_active:
         conn.close()
         return jsonify({'success': False, 'message': 'This spot is currently inactive.'}), 400
 
-    # 4. Validate against the zoneAssignment M:N table (Is the assignment active?)
+    # Check if zone is active in this lot (uses zoneAssignment junction table)
     cursor.execute("""
-        SELECT za_isactive
-        FROM zoneAssignment
+        SELECT za_isactive FROM zoneAssignment
         WHERE za_lotkey = ? AND za_zonekey = ?
     """, [lot_key, spot_zone_key])
 
-    assignment_active = cursor.fetchone()
-    if not assignment_active or assignment_active[0] == 0:
+    assignment = cursor.fetchone()
+    if not assignment or not assignment[0]:
         conn.close()
         return jsonify({
             'success': False,
-            'message': f'Parking in the {spot_zone_type} Zone of Lot {lot_name} is currently suspended.'
+            'message': f'Parking in {spot_zone_type} Zone of {lot_name} is currently suspended.'
         }), 403
 
-    # 5. Validate against Permit Category (Does the permit allow this zone?) 
-    can_park = False
-    if spot_zone_type == 'Green':
-        can_park = True
-    elif spot_zone_type == 'Gold' and permit_category == 'Faculty':
-        can_park = True
-    elif spot_zone_type == 'H' and permit_category == 'On-Campus Student':
-        can_park = True
+    # Check permit permissions
+    can_park = (
+        spot_zone_type == 'Green' or
+        (spot_zone_type == 'Gold' and permit_category == 'Faculty') or
+        (spot_zone_type == 'H' and permit_category == 'On-Campus Student')
+    )
     
     if not can_park:
         conn.close()
@@ -259,8 +249,7 @@ def claim_spot(spot_num):
             'message': f'Your {permit_category} permit does not allow parking in {spot_zone_type} Zone.'
         }), 403
     
-    # 6. Claim the Spot (Insert parkingHistory and Update Spot status)
-    # Insert into parkingHistory (Find next key)
+    # Claim the spot (uses parkingHistory junction table)
     cursor.execute("SELECT MAX(ph_parkinghistkey) FROM parkingHistory")
     new_history_key = (cursor.fetchone()[0] or 0) + 1
     
@@ -270,12 +259,7 @@ def claim_spot(spot_num):
         VALUES(?, ?, ?, DATETIME('now', '-08:00'), NULL)
     """, [new_history_key, vehicle_key, spot_key])
     
-    # Update spot status to occupied (1)
-    cursor.execute("""
-        UPDATE spots
-        SET s_status = 1
-        WHERE s_spotskey = ?
-    """, [spot_key])
+    cursor.execute("UPDATE spots SET s_status = 1 WHERE s_spotskey = ?", [spot_key])
     
     conn.commit()
     conn.close()
@@ -286,20 +270,19 @@ def claim_spot(spot_num):
         'spot': spot_num,
         'lot': lot_name,
         'zone': spot_zone_type
-    }), 200
+    })
 
 
-# -- User unclaims a spot -- 
+# -- Unclaim spots --
 @app.route('/unclaim-spot', methods=['POST'])
 @login_required
 def unclaim_spot():
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
     
-    # Check if user has an active permit with a vehicle
+    # Get user's vehicle
     cursor.execute("""
-        SELECT p.p_vehicleskey
-        FROM permit p
+        SELECT p.p_vehicleskey FROM permit p
         WHERE p.p_userkey = ? AND p.p_expirationdate >= DATETIME('now', '-08:00')
     """, [current_user.u_userkey])
     
@@ -326,19 +309,13 @@ def unclaim_spot():
     
     history_key, spot_key, spot_num, lot_name = parking_result
     
-    # Update departure time
+    # Unclaim
     cursor.execute("""
-        UPDATE parkingHistory
-        SET ph_departuretime = DATETIME('now', '-08:00')
+        UPDATE parkingHistory SET ph_departuretime = DATETIME('now', '-08:00')
         WHERE ph_parkinghistkey = ?
     """, [history_key])
     
-    # Free the spot
-    cursor.execute("""
-        UPDATE spots
-        SET s_status = 0
-        WHERE s_spotskey = ?
-    """, [spot_key])
+    cursor.execute("UPDATE spots SET s_status = 0 WHERE s_spotskey = ?", [spot_key])
     
     conn.commit()
     conn.close()
@@ -351,17 +328,16 @@ def unclaim_spot():
     })
 
 
-# -- Get current parking status for logged-in user --
+# -- Check if a user is currently parked --
 @app.route('/my-parking-status')
 @login_required
 def my_parking_status():
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
     
-    # Check if user has active permit
+    # Check for active permit
     cursor.execute("""
-        SELECT p.p_vehicleskey
-        FROM permit p
+        SELECT p.p_vehicleskey FROM permit p
         WHERE p.p_userkey = ? AND p.p_expirationdate >= DATETIME('now', '-08:00')
     """, [current_user.u_userkey])
     
@@ -394,19 +370,96 @@ def my_parking_status():
             'zone': parking_result[2],
             'arrival_time': parking_result[3]
         })
+    
+    return jsonify({'has_permit': True, 'is_parked': False})
+
+
+# -- Check which zones are available (zoneAssignments).
+@app.route('/api/zone-status')
+@login_required
+def zone_status():
+    conn = sqlite3.connect('instance/data.sqlite')
+    cursor = conn.cursor()
+    
+    # Query zoneAssignment junction table
+    cursor.execute("""
+        SELECT l.l_lotkey, l.l_name, z.z_zonekey, z.z_type, za.za_isactive
+        FROM lot l
+        LEFT JOIN zoneAssignment za ON l.l_lotkey = za.za_lotkey
+        LEFT JOIN zone z ON za.za_zonekey = z.z_zonekey
+        ORDER BY l.l_lotkey, z.z_zonekey
+    """)
+    
+    results = cursor.fetchall()
+    conn.close()
+    
+    # Organize by lot
+    lots_dict = {}
+    for row in results:
+        lot_key, lot_name, zone_key, zone_type, is_active = row
+        
+        if lot_key not in lots_dict:
+            lots_dict[lot_key] = {
+                'lot_key': lot_key,
+                'lot_name': lot_name,
+                'zones': []
+            }
+        
+        if zone_key is not None:
+            lots_dict[lot_key]['zones'].append({
+                'zone_key': zone_key,
+                'zone_type': zone_type,
+                'is_active': bool(is_active)
+            })
+    
+    return jsonify({'lots': list(lots_dict.values())})
+
+
+# -- Check which zones a specific user can park in from permit types --
+@app.route('/api/my-accessible-zones')
+@login_required
+def my_accessible_zones():
+    conn = sqlite3.connect('instance/data.sqlite')
+    cursor = conn.cursor()
+    
+    # Get user's permit category
+    cursor.execute("""
+        SELECT pt.pt_category
+        FROM permit p
+        JOIN permitType pt ON p.p_permittypekey = pt.pt_permittypekey
+        WHERE p.p_userkey = ? AND p.p_expirationdate >= DATETIME('now', '-08:00')
+    """, [current_user.u_userkey])
+    
+    permit_result = cursor.fetchone()
+    if not permit_result:
+        conn.close()
+        return jsonify({'has_permit': False, 'accessible_zones': []})
+    
+    permit_category = permit_result[0]
+    
+    # Determine accessible zones
+    if permit_category == 'Faculty':
+        accessible_zones = ['Green', 'Gold']
+    elif permit_category == 'On-Campus Student':
+        accessible_zones = ['Green', 'H']
     else:
-        return jsonify({
-            'has_permit': True,
-            'is_parked': False
-        })
+        accessible_zones = ['Green']
+    
+    conn.close()
+    
+    return jsonify({
+        'has_permit': True,
+        'permit_category': permit_category,
+        'accessible_zones': accessible_zones
+    })
 
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# --- VIEW/REGISTER VEHICLE PAGE  ---
+# --- VEHICLE MANAGEMENT  ---
 # ----------------------------------------------------------------------------------------------------------------------
 
-# -- Redirect user to page to display their registered vehicles --
+# -- User views vehicles --
 @app.route('/view_vehicles', methods=['GET', 'POST'])
 @login_required
 def view_vehicles():
@@ -414,37 +467,32 @@ def view_vehicles():
     cursor = conn.cursor()
     error = None
     
-    # Handle POST: Delete vehicle
+    # Handle DELETE
     if request.method == 'POST':
         vehicle_key = request.form.get('vehicle_key')
         
         if vehicle_key:
-            # Security: Verify vehicle belongs to current user
+            # Check if vehicle has active permit
             cursor.execute("""
-                SELECT COUNT(*) FROM vehicles 
-                WHERE v_vehicleskey = ? AND v_userkey = ?
-            """, [vehicle_key, current_user.u_userkey])
+                SELECT COUNT(*) FROM permit 
+                WHERE p_vehicleskey = ? AND p_expirationdate >= DATETIME('now', '-08:00')
+            """, [vehicle_key])
             
-            if cursor.fetchone()[0] == 0:
-                error = "Invalid vehicle selection."
+            if cursor.fetchone()[0] > 0:
+                error = "Cannot delete this vehicle. It is connected to an active permit."
             else:
-                # Check if vehicle is connected to an active permit
+                # Delete (ownership enforced in WHERE clause)
                 cursor.execute("""
-                    SELECT COUNT(*) FROM permit 
-                    WHERE p_vehicleskey = ? AND p_expirationdate >= DATETIME('now', '-08:00')
-                """, [vehicle_key])
+                    DELETE FROM vehicles 
+                    WHERE v_vehicleskey = ? AND v_userkey = ?
+                """, [vehicle_key, current_user.u_userkey])
                 
-                if cursor.fetchone()[0] > 0:
-                    error = "Cannot delete this vehicle. It is connected to an active permit."
-                else:
-                    # Safe to delete
-                    cursor.execute("""
-                        DELETE FROM vehicles 
-                        WHERE v_vehicleskey = ? AND v_userkey = ?
-                    """, [vehicle_key, current_user.u_userkey])
+                if cursor.rowcount > 0:
                     conn.commit()
+                else:
+                    error = "Invalid vehicle selection."
     
-    # GET or after POST: Display vehicles
+    # Display vehicles
     cursor.execute("""
         SELECT v_vehicleskey, v_plateno, v_platestate, v_maker, v_model, v_color
         FROM vehicles WHERE v_userkey = ?
@@ -456,68 +504,56 @@ def view_vehicles():
     return render_template("view_vehicles.html", vehicles=vehicles, error=error, username=current_user.username)
 
 
-# -- Redirect user to the page to register a vehicle --
+# -- User registers for a vehicle -- 
 @app.route('/reg_vehicle', methods=['GET', 'POST'])
 @login_required
 def reg_vehicle():
     if request.method == 'GET':
         return render_template("reg_vehicle.html", username=current_user.username)
     
-    # POST: Process vehicle registration
+    # Process registration
     plate_no = request.form.get('plate_no')
     plate_state = request.form.get('plate_state')
     maker = request.form.get('maker')
     model = request.form.get('model')
     color = request.form.get('color')
     
-    # Validation
     if not all([plate_no, plate_state, maker, model, color]):
-        error = "All fields are required."
-        return render_template('reg_vehicle.html', error=error, username=current_user.username)
+        return render_template('reg_vehicle.html', error="All fields are required.", username=current_user.username)
     
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
     
-    # Check if plate number already exists ANYWHERE in the system
-    cursor.execute("""
-        SELECT v_userkey FROM vehicles 
-        WHERE v_plateno = ?
-    """, [plate_no])
+    # Check for duplicate plate
+    cursor.execute("SELECT v_userkey FROM vehicles WHERE v_plateno = ?", [plate_no])
+    existing = cursor.fetchone()
     
-    existing_vehicle = cursor.fetchone()
-    
-    if existing_vehicle:
+    if existing:
         conn.close()
-        if existing_vehicle[0] == current_user.u_userkey:
-            error = "You already have a vehicle registered with this plate number."
-        else:
-            error = "This plate number is already registered by another user."
+        error = "You already have a vehicle with this plate." if existing[0] == current_user.u_userkey else "This plate is already registered."
         return render_template('reg_vehicle.html', error=error, username=current_user.username)
     
-    # Get the next vehicle key (auto-increment)
+    # Insert vehicle
     cursor.execute("SELECT MAX(v_vehicleskey) FROM vehicles")
-    max_key = cursor.fetchone()[0]
-    new_vehicle_key = (max_key or 0) + 1
+    new_key = (cursor.fetchone()[0] or 0) + 1
     
-    # Insert new vehicle
-    sql = """
+    cursor.execute("""
         INSERT INTO vehicles(v_vehicleskey, v_userkey, v_plateno, v_platestate, v_maker, v_model, v_color)
         VALUES(?, ?, ?, ?, ?, ?, ?)
-    """
-    cursor.execute(sql, [new_vehicle_key, current_user.u_userkey, plate_no, plate_state, maker, model, color])
+    """, [new_key, current_user.u_userkey, plate_no, plate_state, maker, model, color])
+    
     conn.commit()
     conn.close()
     
-    # Success - redirect to view vehicles
     return redirect(url_for('view_vehicles'))
 
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# --- VIEW/APPLY FOR PERMIT PAGES  ---
+# --- PERMIT MANAGEMENT  ---
 # ----------------------------------------------------------------------------------------------------------------------
 
-# -- Redirect user to page that displays their permit information --
+# -- View permit page. --
 @app.route('/view_permit', methods=['GET', 'POST'])
 @login_required
 def view_permit():
@@ -525,38 +561,32 @@ def view_permit():
     cursor = conn.cursor()
     error = None
     
-    # Handle POST: Delete permit
+    # Handle DELETE
     if request.method == 'POST':
         permit_key = request.form.get('permit_key')
         
         if permit_key:
-            # Security: Verify permit belongs to current user
+            # Check if vehicle is currently parked
             cursor.execute("""
-                SELECT COUNT(*) FROM permit 
-                WHERE p_permitkey = ? AND p_userkey = ?
+                SELECT COUNT(*) FROM parkingHistory ph
+                JOIN permit p ON ph.ph_vehicleskey = p.p_vehicleskey
+                WHERE p.p_permitkey = ? AND p.p_userkey = ? AND ph.ph_departuretime IS NULL
             """, [permit_key, current_user.u_userkey])
-            
-            if cursor.fetchone()[0] == 0:
-                error = "Invalid permit selection."
-            else:
-                # Check if vehicle is currently parked
-                cursor.execute("""
-                    SELECT COUNT(*) FROM parkingHistory ph
-                    JOIN permit p ON ph.ph_vehicleskey = p.p_vehicleskey
-                    WHERE p.p_permitkey = ? AND ph.ph_departuretime IS NULL
-                """, [permit_key])
 
-                if cursor.fetchone()[0] > 0:
-                    error = "Cannot delete this permit. The associated vehicle is currently parked."
-                else:
-                    # Safe to delete
-                    cursor.execute("""
-                        DELETE FROM permit
-                        WHERE p_permitkey = ? AND p_userkey = ?
-                    """, [permit_key, current_user.u_userkey])
+            if cursor.fetchone()[0] > 0:
+                error = "Cannot delete this permit. The associated vehicle is currently parked."
+            else:
+                # Delete (ownership enforced in WHERE clause)
+                cursor.execute("""
+                    DELETE FROM permit WHERE p_permitkey = ? AND p_userkey = ?
+                """, [permit_key, current_user.u_userkey])
+                
+                if cursor.rowcount > 0:
                     conn.commit()
+                else:
+                    error = "Invalid permit selection."
     
-    # Get user's permits
+    # Display permits
     cursor.execute("""
         SELECT p.p_permitkey, v.v_plateno, v.v_maker, v.v_model, v.v_color,
                pt.pt_category, pt.pt_duration, p.p_permitnum, 
@@ -565,17 +595,15 @@ def view_permit():
         JOIN permitType pt ON pt.pt_permittypekey = p.p_permittypekey
         JOIN vehicles v ON p.p_vehicleskey = v.v_vehicleskey
         WHERE p.p_userkey = ? AND p.p_expirationdate >= DATETIME('now', '-08:00')
-     """
-    , [current_user.u_userkey])
+    """, [current_user.u_userkey])
     permits = cursor.fetchall()
     conn.close()
     
-    has_permit = len(permits) > 0
+    return render_template('view_permit.html', permits=permits, has_permit=len(permits) > 0, 
+                         error=error, username=current_user.username)
 
-    return render_template('view_permit.html', permits=permits, has_permit=has_permit, error=error, username=current_user.username)
 
-
-# -- Redirect user to the page to apply for a permit --
+# -- User applys for a permit. --
 @app.route('/apply_permit', methods=['GET', 'POST'])
 @login_required
 def apply_permit():
@@ -583,17 +611,6 @@ def apply_permit():
     cursor = conn.cursor()
     
     if request.method == 'GET':
-        # Check if user already has an active permit
-        cursor.execute("""
-            SELECT COUNT(*) FROM permit 
-            WHERE p_userkey = ? AND p_expirationdate >= DATE('now', '-08:00')
-        """, [current_user.u_userkey])
-        
-        # Check if user has registered any vehicles
-        cursor.execute("""
-            SELECT COUNT(*) FROM vehicles WHERE v_userkey = ?
-        """, [current_user.u_userkey])
-        
         # Get user's vehicles
         cursor.execute("""
             SELECT v_vehicleskey, v_plateno, v_maker, v_model
@@ -602,7 +619,7 @@ def apply_permit():
         """, [current_user.u_userkey])
         vehicles = cursor.fetchall()
         
-        # Get ALL permit types
+        # Get permit types
         cursor.execute("""
             SELECT pt_permittypekey, pt_category, pt_duration 
             FROM permitType
@@ -621,98 +638,44 @@ def apply_permit():
                 END
         """)
         permit_types = cursor.fetchall()
-        
         conn.close()
         
-        return render_template('apply_permit.html', vehicles=vehicles, permit_types=permit_types, username=current_user.username)
+        return render_template('apply_permit.html', vehicles=vehicles, permit_types=permit_types, 
+                             username=current_user.username)
     
-    # POST: Process permit application
+    # Process application
     vehicle_key = request.form.get('vehicle_key')
     permit_type_key = request.form.get('permit_type_key')
-    permit_category = request.form.get('permit_category')  # We get this too now
     
-    if not all([vehicle_key, permit_type_key, permit_category]):
-        error = "Please complete all steps: select vehicle, category, and duration."
-        
-        cursor.execute("""
-            SELECT v_vehicleskey, v_plateno, v_maker, v_model
-            FROM vehicles WHERE v_userkey = ?
-        """, [current_user.u_userkey])
-        vehicles = cursor.fetchall()
-        
-        cursor.execute("""
-            SELECT pt_permittypekey, pt_category, pt_duration 
-            FROM permitType
-            ORDER BY pt_category, pt_duration
-        """)
-        permit_types = cursor.fetchall()
-        
-        conn.close()
-        
-        return render_template('apply_permit.html', vehicles=vehicles, permit_types=permit_types, error=error, username=current_user.username)
+    # Get permit duration
+    cursor.execute("SELECT pt_duration FROM permitType WHERE pt_permittypekey = ?", [permit_type_key])
+    permit_duration = cursor.fetchone()[0]
     
-    # Verify vehicle belongs to user
-    cursor.execute("""
-        SELECT COUNT(*) FROM vehicles 
-        WHERE v_vehicleskey = ? AND v_userkey = ?
-    """, [vehicle_key, current_user.u_userkey])
+    # Calculate expiration
+    expiration_map = {
+        'Yearly': '2026-05-19',
+        'Semester': '2025-12-23',
+        'Daily': "DATETIME('now', '-08:00', '+1 day')",
+        'Hourly': "DATETIME('now', '-08:00', '+1 hour')"
+    }
+    expiration = expiration_map[permit_duration]
     
-    if cursor.fetchone()[0] == 0:
-        conn.close()
-        return render_template('error.html', message="Invalid vehicle selection.", username=current_user.username)
-    
-    # Get the permit type to verify category matches and get duration
-    cursor.execute("""
-        SELECT pt_category, pt_duration FROM permitType 
-        WHERE pt_permittypekey = ?
-    """, [permit_type_key])
-    
-    result = cursor.fetchone()
-    if not result:
-        conn.close()
-        return render_template('error.html', message="Invalid permit type selection.", username=current_user.username)
-    
-    db_category, permit_duration = result
-    
-    # Verify the category matches (security check)
-    if db_category != permit_category:
-        conn.close()
-        return render_template('error.html', message="Permit type does not match selected category.", username=current_user.username)
-    
-    # Determine expiration date based on duration
-    if permit_duration == 'Yearly':
-        expiration_date = '2026-05-19'
-    elif permit_duration == 'Semester':
-        expiration_date = '2025-12-23'
-    elif permit_duration == 'Daily':
-        expiration_date = "DATETIME('now', '-08:00', '+1 day')"
-    elif permit_duration == 'Hourly':
-        expiration_date = "DATETIME('now', '-08:00', '+1 hour')"
-    else:
-        conn.close()
-        return render_template('error.html', message="Unknown permit duration type.", username=current_user.username)
-    
-    # Get next permit key
+    # Generate permit
     cursor.execute("SELECT MAX(p_permitkey) FROM permit")
-    max_key = cursor.fetchone()[0]
-    new_permit_key = (max_key or 0) + 1
+    new_key = (cursor.fetchone()[0] or 0) + 1
+    permit_num = f'PRM{new_key:04d}'
     
-    # Generate permit number
-    permit_num = f'PRM{new_permit_key:04d}'
-    
-    # Insert permit with correct expiration date
+    # Insert
     if permit_duration in ['Yearly', 'Semester']:
-        sql = """
+        cursor.execute("""
             INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, p_permitnum, p_issuedate, p_expirationdate)
             VALUES(?, ?, ?, ?, ?, DATETIME('now', '-08:00'), ?)
-        """
-        cursor.execute(sql, [new_permit_key, current_user.u_userkey, vehicle_key, permit_type_key, permit_num, expiration_date])
+        """, [new_key, current_user.u_userkey, vehicle_key, permit_type_key, permit_num, expiration])
     else:
-        sql = f"""
+        cursor.execute(f"""
             INSERT INTO permit(p_permitkey, p_userkey, p_vehicleskey, p_permittypekey, p_permitnum, p_issuedate, p_expirationdate)
-            VALUES(?, ?, ?, ?, ?, DATETIME('now', '-08:00'), {expiration_date})
-        """
-        cursor.execute(sql, [new_permit_key, current_user.u_userkey, vehicle_key, permit_type_key, permit_num])
+            VALUES(?, ?, ?, ?, ?, DATETIME('now', '-08:00'), {expiration})
+        """, [new_key, current_user.u_userkey, vehicle_key, permit_type_key, permit_num])
     
     conn.commit()
     conn.close()
@@ -722,17 +685,16 @@ def apply_permit():
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# --- FUNCTIONS THAT EXECUTE ON RUN  ---
+# --- AUTOMATED ENFORCEMENT  ---
 # ----------------------------------------------------------------------------------------------------------------------
 
-# -- Delete any expired permits and forcibly unclaim users parked in a zone that changed on run --
-def enforce_time_limits_and_cleanups():
+# -- Automatically unclaims spots for expired permits and vehicles in wrong zone after 30 minutes. --
+def enforce_parking_rules():
     conn = sqlite3.connect('instance/data.sqlite')
-    cursor = conn.cursor()
-    
-    all_records_to_unclaim = {}
+    cursor = conn.cursor() 
+    violations = {}
 
-    # 1. FIND EXPIRED PERMITS (Standard Cleanup)
+    # Find expired permits
     cursor.execute("""
         SELECT ph.ph_parkinghistkey, ph.ph_spotskey, s.s_num
         FROM parkingHistory ph
@@ -741,13 +703,11 @@ def enforce_time_limits_and_cleanups():
         WHERE ph.ph_departuretime IS NULL 
             AND p.p_expirationdate < DATETIME('now', '-08:00')
     """)
+    
     for hist_key, spot_key, spot_num in cursor.fetchall():
-        all_records_to_unclaim[hist_key] = {'spot_key': spot_key, 'spot_num': spot_num, 'reason': 'PERMIT EXPIRED'}
+        violations[hist_key] = {'spot_key': spot_key, 'spot_num': spot_num, 'reason': 'EXPIRED_PERMIT'}
 
-
-    # 2. FIND ZONE VIOLATIONS AFTER GRACE PERIOD (NEW Logic)
-    # Find active parkers who are in a zone they don't have permission for 
-    # AND have been parked for more than 30 minutes (grace period expired).
+    # Find zone violations after grace period
     cursor.execute("""
         SELECT ph.ph_parkinghistkey, ph.ph_spotskey, s.s_num
         FROM parkingHistory ph
@@ -756,73 +716,61 @@ def enforce_time_limits_and_cleanups():
         JOIN spots s ON ph.ph_spotskey = s.s_spotskey
         JOIN zone z ON s.s_zonekey = z.z_zonekey
         WHERE ph.ph_departuretime IS NULL 
-            AND ph_arrivaltime < DATETIME('now', '-08:00', '-30 minutes') 
+            AND ph.ph_arrivaltime < DATETIME('now', '-08:00', '-30 minutes') 
             AND ((z.z_type = 'Gold' AND pt.pt_category != 'Faculty') 
                 OR (z.z_type = 'H' AND pt.pt_category != 'On-Campus Student'))
     """)
     
     for hist_key, spot_key, spot_num in cursor.fetchall():
-        if hist_key not in all_records_to_unclaim:
-            all_records_to_unclaim[hist_key] = {'spot_key': spot_key, 'spot_num': spot_num, 'reason': 'MAX_STAY_EXCEEDED_WRONG_ZONE'}
+        if hist_key not in violations:
+            violations[hist_key] = {'spot_key': spot_key, 'spot_num': spot_num, 'reason': 'ZONE_VIOLATION'}
 
-    # 4. PROCESS FORCED UNCLAIM
-    if not all_records_to_unclaim:
-        print("Enforcer: No spots require forced unclaiming.")
+    # Process violations
+    if not violations:
+        print("Enforcer: No violations found.")
         conn.close()
         return
-
-    print(f"Enforcer: Processing {len(all_records_to_unclaim)} records for forced unclaim.")
+    print(f"Enforcer: Processing {len(violations)} violations...")
     
-    for history_key, data in all_records_to_unclaim.items():
-        # A. Update parkingHistory: Set departure time
+    for history_key, data in violations.items():
         cursor.execute("""
-            UPDATE parkingHistory
-            SET ph_departuretime = DATETIME('now', '-08:00')
+            UPDATE parkingHistory SET ph_departuretime = DATETIME('now', '-08:00')
             WHERE ph_parkinghistkey = ?
         """, [history_key])
         
-        # B. Update spots: Set status to 0 (available)
-        cursor.execute("""
-            UPDATE spots
-            SET s_status = 0
-            WHERE s_spotskey = ?
-        """, [data['spot_key']])
-        
-        print(f"   -> FORCED UNCLAIM Spot {data['spot_num']} (Reason: {data['reason']})")
+        cursor.execute("UPDATE spots SET s_status = 0 WHERE s_spotskey = ?", [data['spot_key']])
+        print(f"   -> Forced unclaim: Spot {data['spot_num']} ({data['reason']})")
         
     conn.commit()
     conn.close()
-    print("Enforcer: Finished all enforcement and cleanups.")
+    print("Enforcer: Enforcement complete.")
 
 
-# -- Update North Bowl zones based on time of day --
+# -- Updates North Bowl zone assignment based on time of day. --
 def update_time_based_zones():
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
     
-    # Get current hour (Pacific Time)
+    # Get current hour
     cursor.execute("SELECT CAST(strftime('%H', 'now', '-08:00') AS INTEGER)")
     current_hour = cursor.fetchone()[0]
 
-    # Nighttime = 7 PM (19) to 6 AM (05)
     is_nighttime = (current_hour >= 19 or current_hour < 6)
-
-    # Zone and Lot Keys:
+    
     gold_zone = 2
     green_zone = 1
     north_bowl = 3
 
     if is_nighttime:
-        print("Nighttime rules: North Bowl (Lot 3) → Green Zone (1) only")
-
-        # 1. UPDATE SPOTS: Change the spot's zone key to Green (s_zonekey = 1)
+        print("Time-based zones: North Bowl → Green (Nighttime)")
+        
+        # Update spots to Green
         cursor.execute("""
-            UPDATE spots
-            SET s_zonekey = ?, s_isactive = 1 
-            WHERE s_lotkey = ? 
+            UPDATE spots SET s_zonekey = ?, s_isactive = 1 
+            WHERE s_lotkey = ?
         """, (green_zone, north_bowl))
 
-        # 2. UPDATE ZONE ASSIGNMENT: Activate Green (1), Deactivate Gold (2) for Lot 3
+        # Update zoneAssignment: activate Green, deactivate Gold
         cursor.execute("""
             UPDATE zoneAssignment SET za_isactive = 1
             WHERE za_lotkey = ? AND za_zonekey = ?
@@ -832,18 +780,16 @@ def update_time_based_zones():
             UPDATE zoneAssignment SET za_isactive = 0
             WHERE za_lotkey = ? AND za_zonekey = ?
         """, (north_bowl, gold_zone))
-
     else:
-        print("Daytime rules: North Bowl (Lot 3) → Gold Zone (2) only")
+        print("Time-based zones: North Bowl → Gold (Daytime)")
         
-        # 1. UPDATE SPOTS: Change the spot's zone key to Gold (s_zonekey = 2)
+        # Update spots to Gold
         cursor.execute("""
-            UPDATE spots
-            SET s_zonekey = ?, s_isactive = 1 
-            WHERE s_lotkey = ? 
+            UPDATE spots SET s_zonekey = ?, s_isactive = 1 
+            WHERE s_lotkey = ?
         """, (gold_zone, north_bowl))
 
-        # 2. UPDATE ZONE ASSIGNMENT: Activate Gold (2), Deactivate Green (1) for Lot 3
+        # Update zoneAssignment: activate Gold, deactivate Green
         cursor.execute("""
             UPDATE zoneAssignment SET za_isactive = 1
             WHERE za_lotkey = ? AND za_zonekey = ?
@@ -858,54 +804,7 @@ def update_time_based_zones():
     conn.close()
 
 
-# -- Identifies vehicles that are currently parked but whose permit has expired, --
-#    and automatically sets their departure time and frees the spot.             
-def unclaim_expired_spots():
-    conn = sqlite3.connect('instance/data.sqlite')
-    cursor = conn.cursor()
-    
-    # Find Active Parking Records with Expired Permits
-    cursor.execute("""
-        SELECT ph.ph_parkinghistkey, ph.ph_spotskey, s.s_num, p.p_permitkey
-        FROM parkingHistory ph
-        JOIN permit p ON ph.ph_vehicleskey = p.p_vehicleskey 
-        JOIN spots s ON ph.ph_spotskey = s.s_spotskey
-        WHERE ph.ph_departuretime IS NULL 
-            AND p.p_expirationdate < DATETIME('now', '-08:00')
-    """)
-    
-    expired_parked_records = cursor.fetchall()
-    
-    if not expired_parked_records:
-        print("Scheduler: No expired permits found for currently parked vehicles.")
-        conn.close()
-        return
-
-    print(f"Scheduler: Found {len(expired_parked_records)} expired parked records to unclaim.")
-    
-    # Process Expirations and Update Database
-    for history_key, spot_key, spot_num, permit_key in expired_parked_records:
-        # Update parkingHistory: Set departure time
-        cursor.execute("""
-            UPDATE parkingHistory
-            SET ph_departuretime = DATETIME('now', '-08:00')
-            WHERE ph_parkinghistkey = ?
-        """, [history_key])
-        
-        # Update spots: Set status to 0 (available)
-        cursor.execute("""
-            UPDATE spots
-            SET s_status = 0
-            WHERE s_spotskey = ?
-        """, [spot_key])     
-        print(f"   -> Automatically unclaimed Spot {spot_num} (History {history_key}, Permit {permit_key})")
-        
-    conn.commit()
-    conn.close()
-    print("Scheduler: Finished automatic spot unclaiming.")
-
-
-# -- Deletes records from parkingHistory where the session is complete AND the departure time is older than 24 hours. --
+# -- Delete any old parking records after the departure time is 24 hours old --
 def delete_old_parking_records():
     conn = sqlite3.connect('instance/data.sqlite')
     cursor = conn.cursor()
@@ -916,8 +815,12 @@ def delete_old_parking_records():
             AND ph_departuretime < DATETIME('now', '-08:00', '-24 hours')
     """)
     
+    deleted = cursor.rowcount
     conn.commit()
     conn.close()
+    
+    if deleted > 0:
+        print(f"Cleanup: Deleted {deleted} old parking records.")
 
 
 
@@ -929,14 +832,14 @@ if __name__ == '__main__':
     resetTheTable = False  
 
     with app.app_context():
-        if (resetTheTable):
+        if resetTheTable:
             db.drop_all()
         db.create_all()
 
-    enforce_time_limits_and_cleanups()
+    # Run automated tasks on startup
+    enforce_parking_rules()
     update_time_based_zones()
-    unclaim_expired_spots()
     delete_old_parking_records()
 
-    print("running locally")
+    print("Server starting on port 5001...")
     app.run(port=5001, debug=True)
