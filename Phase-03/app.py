@@ -63,6 +63,12 @@ def signup_process():
     if password != confirm_password:
         return render_template('signup.html', error="Passwords do not match.")
     
+    if '@' not in email_input or '.' not in email_input.split('@')[-1]:
+        return render_template('signup.html', error="Invalid email format.")
+    
+    if not email_input.lower().endswith('@ucmerced.edu'):
+        return render_template('signup.html', error="Must use a UC Merced email (@ucmerced.edu).")
+    
     if User.query.filter_by(username=username_input).first():
         return render_template('signup.html', error="Username already exists.")
     
