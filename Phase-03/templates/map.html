@@ -15,6 +15,48 @@
             border-radius: 8px;
             margin-top: 20px;
         }
+
+        /* === Lot zoom button styles=== */
+        .lot-label-container {
+            border: none !important;
+            background: none !important;
+        }
+
+        .lot-zoom-btn {
+            background-color: #003262;
+            color: white;
+            padding: 5px 10px;
+            border: 2px solid #ffc107;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+
+        .lot-zoom-btn:hover {
+            background-color: #00569a;
+        }
+
+        /* === Go To My Spot button styling === */
+        .go-to-spot-btn {
+            background-color: #003262;
+            color: white;
+        }
+
+        .go-to-spot-btn:hover {
+            background-color: #00569a;
+        }
+
+        .parking-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        /* ========================================== */
         
         .current-parking {
             background: #d4edda;
@@ -224,13 +266,41 @@
     <script>
         let currentParkingStatus = {};
         let allMarkers = [];
-        const map = L.map('map').setView([37.3653, -120.4250], 16);
+
+        /* ===  Campus bounds + constrained map === */
+        const ucMercedBounds = [
+            [37.35, -120.44], // Southwest
+            [37.38, -120.41]  // Northeast
+        ];
+
+        const map = L.map('map', {
+            minZoom: 15,
+            maxZoom: 18,
+            maxBounds: ucMercedBounds,
+            maxBoundsViscosity: 1.0
+        }).setView([37.3653, -120.4250], 15);
+        /* ================================================================ */
 
         // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19
         }).addTo(map);
+
+        // === function to zoom to claimed spot ===
+        function goToClaimedSpot(lat, lon) {
+            map.flyTo([lat, lon], 18, {
+                duration: 1.5
+            });
+        }
+
+        // === function to zoom to lot center from button ===
+        function zoomToLot(lat, lon) {
+            map.flyTo([lat, lon], 18, {
+                duration: 1.0
+            });
+        }
+        // ===========================================
 
         // Load zone status information
         fetch('/api/zone-status')
@@ -258,8 +328,8 @@
         fetch('/my-parking-status')
             .then(response => response.json())
             .then(status => {
+                // NOTE: we only store it here; we wait to render until markers are loaded
                 currentParkingStatus = status;
-                displayParkingStatus(status);
             });
 
         // Fetch parking data
@@ -349,6 +419,17 @@
                     </div>
                 `;
             } else if (status.is_parked) {
+                // Find the claimed spot's coordinates from the allMarkers array
+                const claimedSpot = allMarkers.find(m => m.spot.spot_num === status.spot);
+                
+                let lat = null;
+                let lon = null;
+
+                if (claimedSpot) {
+                    lat = claimedSpot.spot.latitude;
+                    lon = claimedSpot.spot.longitude;
+                }
+
                 statusDiv.innerHTML = `
                     <div class="current-parking">
                         <h3>Currently Parked</h3>
@@ -356,7 +437,12 @@
                         <p><strong>Lot:</strong> ${status.lot}</p>
                         <p><strong>Zone:</strong> ${status.zone}</p>
                         <p><strong>Arrival:</strong> ${new Date(status.arrival_time).toLocaleString()}</p>
-                        <button onclick="unclaimSpot()" class="primary-btn unclaim-btn">Leave Spot</button>
+                        <div class="parking-actions">
+                            ${lat !== null && lon !== null 
+                                ? `<button onclick="goToClaimedSpot(${lat}, ${lon})" class="primary-btn go-to-spot-btn">Go To My Spot</button>` 
+                                : ''}
+                            <button onclick="unclaimSpot()" class="primary-btn unclaim-btn">Leave Spot</button>
+                        </div>
                     </div>
                 `;
             } else {
@@ -369,6 +455,10 @@
         }
 
         function displayParkingSpots(spots) {
+            // Clear existing markers in case of refresh
+            allMarkers.forEach(m => map.removeLayer(m.marker));
+            allMarkers = [];
+
             spots.forEach(spot => {
                 let color;
                 if (!spot.is_active) {
@@ -421,6 +511,23 @@
             });
 
             addLotLabels(spots);
+
+            // Now that markers are ready, show parking status so "Go To My Spot" works
+            displayParkingStatus(currentParkingStatus);
+        }
+
+        // ===  clickable zoom buttons + zoom visibility logic (not just labels) ===
+        const HIDE_ZOOM_LEVEL = 17;
+
+        function updateLotButtonVisibility() {
+            const currentZoom = map.getZoom();
+            const lotButtons = document.querySelectorAll('.lot-label-container');
+
+            if (currentZoom >= HIDE_ZOOM_LEVEL) {
+                lotButtons.forEach(btn => { btn.style.display = 'none'; });
+            } else {
+                lotButtons.forEach(btn => { btn.style.display = 'block'; });
+            }
         }
 
         function addLotLabels(spots) {
@@ -437,15 +544,27 @@
                 const centerLat = lot.lats.reduce((a, b) => a + b) / lot.lats.length;
                 const centerLon = lot.lons.reduce((a, b) => a + b) / lot.lons.length;
 
+                const buttonHtml = `
+                    <button class="lot-zoom-btn" onclick="zoomToLot(${centerLat}, ${centerLon})">
+                        ${lot.name}
+                    </button>
+                `;
+
                 L.marker([centerLat, centerLon], {
                     icon: L.divIcon({
-                        className: 'lot-label',
-                        html: `<div style="background: white; padding: 5px 10px; border: 2px solid #003262; border-radius: 5px; font-weight: bold; color: #003262;">${lot.name}</div>`,
-                        iconSize: [100, 30]
+                        className: 'lot-label-container',
+                        html: buttonHtml,
+                        iconSize: [150, 40]
                     })
                 }).addTo(map);
             });
+
+            // Set initial visibility based on starting zoom
+            updateLotButtonVisibility();
         }
+
+        map.on('zoomend', updateLotButtonVisibility);
+        // ===================================================
 
         function claimSpot(spotNum) {
             fetch(`/claim-spot/${spotNum}`, {
