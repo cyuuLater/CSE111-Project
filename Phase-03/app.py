@@ -823,6 +823,28 @@ def delete_old_parking_records():
         print(f"Cleanup: Deleted {deleted} old parking records.")
 
 
+# -- Delete expired permits --
+def delete_expired_permits():
+    conn = sqlite3.connect('instance/data.sqlite')
+    cursor = conn.cursor()
+
+    # Delete expired permits
+    cursor.execute("""
+        DELETE FROM permit 
+        WHERE p_expirationdate < DATETIME('now', '-08:00')
+        AND NOT EXISTS (
+            SELECT 1 FROM parkingHistory ph 
+            WHERE ph.ph_vehicleskey = permit.p_vehicleskey)
+    """)
+    
+    deleted_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    if deleted_count > 0:
+        print(f"Cleanup: Deleted {deleted_count} expired permit records from DB.")
+
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 # --- APP EXECUTION  ---
@@ -840,6 +862,7 @@ if __name__ == '__main__':
     enforce_parking_rules()
     update_time_based_zones()
     delete_old_parking_records()
+    delete_expired_permits()
 
     print("Server starting on port 5001...")
     app.run(port=5001, debug=True)
